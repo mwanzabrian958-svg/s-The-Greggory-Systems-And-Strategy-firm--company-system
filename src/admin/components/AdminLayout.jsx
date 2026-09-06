@@ -1,0 +1,199 @@
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  LogOut, Search, Bell, X, ChevronRight, HelpCircle,
+  Home, Users, FolderKanban, Calculator, Building2,
+  Briefcase, MessageSquare, LifeBuoy, BarChart3, ShieldCheck, Activity, ClipboardList,
+  FileText
+} from "lucide-react";
+import { apiCall } from "../../services/api";
+import { getNavigationItems } from "../utils/permissions";
+import SearchBlock from "../../components/SearchBlock";
+import { NotificationBell } from "./NotificationBell";
+
+const ICON_MAP = {
+  Home, Users, FolderKanban, Calculator, Building2,
+  Briefcase, MessageSquare, LifeBuoy, BarChart3, ShieldCheck, Activity, ClipboardList,
+  FileText, Search, Bell, LogOut, X, ChevronRight, HelpCircle
+};
+
+function AdminLayout({ user, children, onLogout }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
+  const [imageError, setImagePhotoError] = useState(false);
+
+  const navItems = getNavigationItems(user);
+  const displayName = user?.display_name || user?.name || (user?.first_name ? `${user.first_name} ${user.last_name}` : "Admin");
+  const initials = displayName.split(" ").map(s => s ? s[0] : "").filter(Boolean).slice(0, 2).join("").toUpperCase();
+
+  const IconComponent = ({ name, ...props }) => {
+    const Icon = ICON_MAP[name] || HelpCircle;
+    return <Icon {...props} />;
+  };
+
+    useEffect(() => {
+    const fetchPhoto = () => {
+      if (user?.id) {
+        const role = user.role === 'developer' ? 'developer' : 'admin';
+        setProfilePhotoUrl(`/api/admin/profile-photo/${role}/${user.id}?v=${Date.now()}`);
+        setImagePhotoError(false);
+      } else {
+        setProfilePhotoUrl(null);
+      }
+    };
+    fetchPhoto();
+    // Re-fetch photo when session changes (e.g. after upload in Settings)
+    window.addEventListener('gf-admin-session-changed', fetchPhoto);
+    return () => window.removeEventListener('gf-admin-session-changed', fetchPhoto);
+  }, [user]);
+
+  // Sync the role-permissions matrix from the DB so the sidebar reflects
+  // what was saved in Roles & Permissions (admin_settings table).
+  useEffect(() => {
+    apiCall("/admin/settings").then((res) => {
+      const settings = res?.settings || {};
+      const matrix = {};
+      Object.keys(settings).forEach((k) => {
+        if (k.startsWith("role_permissions_")) {
+          try { matrix[k.replace("role_permissions_", "")] = JSON.parse(settings[k]); } catch { /* skip malformed */ }
+        }
+      });
+      if (Object.keys(matrix).length > 0) {
+        localStorage.setItem("gf_role_permissions", JSON.stringify(matrix));
+      }
+    }).catch(() => { /* non-fatal — nav falls back to defaults */ });
+  }, [user]);
+
+  const handleLogoutClick = () => {
+    if (onLogout) onLogout();
+    else { sessionStorage.clear(); localStorage.clear(); navigate("/dashboard", { replace: true }); }
+  };
+
+  const isActive = (path) => {
+    if (path === '/admin') return location.pathname === '/admin' || location.pathname === '/admin/';
+    return location.pathname.startsWith(path);
+  };
+
+  const isDashboard = location.pathname === '/admin' || location.pathname === '/admin/';
+  const activeNavItem = navItems.find(item => isActive(item.path) && item.path !== '/admin');
+  const workstationLabel = activeNavItem ? activeNavItem.label : "Management";
+
+  return (
+    <div className="min-h-screen bg-white dark:bg-[#00122B] font-sans flex flex-col overflow-hidden transition-colors duration-300">
+      <header className="bg-white dark:bg-[#00122B] border-b border-slate-200 dark:border-white/10 sticky top-0 z-50 flex-shrink-0 shadow-sm dark:shadow-2xl transition-colors">
+        <div className="w-full px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate('/admin')}>
+             <div className="w-10 h-10 bg-[#002D62] rounded-xl flex items-center justify-center text-white font-black text-lg border border-white/10 shadow-lg">GS</div>
+             <div className="hidden md:block">
+                <p className="text-sm font-bold text-slate-900 dark:text-white leading-none uppercase tracking-tighter">Greggory Systems</p>
+                <p className="text-[7px] text-[#002D62] dark:text-blue-400 font-black uppercase tracking-[0.3em] mt-1.5">Management Portal</p>
+             </div>
+          </div>
+
+          <div className="flex-1 max-w-2xl mx-10">
+            <SearchBlock
+              endpoint="/api/admin/search"
+              resultsBase="/admin/search"
+              variant="admin"
+              placeholder="Query system database..."
+            />
+          </div>
+
+          <div className="flex items-center gap-6">
+            <NotificationBell />
+            <div className="flex items-center gap-3">
+               <div className="text-right hidden sm:block">
+                  <p className="text-[10px] font-bold text-slate-900 dark:text-white leading-none">{displayName}</p>
+                  <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest mt-1">Verified Node</p>
+               </div>
+               <div className="relative cursor-pointer" onClick={() => navigate('/admin/settings')}>
+                  {!imageError && profilePhotoUrl ? (
+                    <img src={profilePhotoUrl} alt={displayName} onError={() => setImagePhotoError(true)} className="w-10 h-10 rounded-full object-cover border-2 border-[#002D62] shadow-lg" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-white font-bold text-xs border border-slate-200 dark:border-white/10 shadow-lg">{initials}</div>
+                  )}
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-[#00122B] rounded-full shadow-sm"></div>
+               </div>
+            </div>
+            <button onClick={handleLogoutClick} className="p-2.5 text-slate-400 hover:text-rose-500 transition-colors" title="Logout"><LogOut size={18} /></button>
+          </div>
+        </div>
+      </header>
+
+      <nav className="bg-slate-50 dark:bg-[#00122B] border-b border-slate-200 dark:border-white/5 sticky top-20 z-40 backdrop-blur-xl flex-shrink-0 transition-colors">
+        <div className="w-full px-6 py-3 flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {navItems.map((item) => (
+            <button key={item.path} onClick={() => navigate(item.path)} className={`flex items-center gap-3 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all group ${isActive(item.path) ? 'bg-[#002D62] text-white shadow-xl' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>
+              <IconComponent name={item.icon} size={14} className={isActive(item.path) ? 'text-white' : 'text-slate-400 dark:text-slate-600 group-hover:text-[#002D62] dark:group-hover:text-blue-400'} />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      <main className="flex-1 overflow-y-auto bg-white dark:bg-slate-50 dark:bg-opacity-0 relative transition-colors">
+        {/* DASHBOARD VIEW */}
+        {isDashboard ? (
+          <div className="w-full px-6 py-10">
+            {children}
+          </div>
+        ) : (
+          /* FULL-PAGE OPERATIONAL WORKSTATION */
+          <div className="fixed inset-0 bg-white dark:bg-[#00122B] z-[1000] flex flex-col animate-in fade-in duration-200 transition-colors">
+            {/* Workstation Navbar - Edge to Edge */}
+            <div className="bg-white dark:bg-[#00122B] text-slate-900 dark:text-white px-6 py-4 flex items-center justify-between border-b border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl flex-shrink-0 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-[#002D62] rounded-xl flex items-center justify-center text-white font-black text-lg border border-white/10 shadow-lg">GS</div>
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tighter leading-none">{workstationLabel}</h2>
+                  <p className="text-[8px] text-[#002D62] dark:text-blue-400 font-black uppercase tracking-[0.4em] mt-1.5">Operational Workstation Active</p>
+                </div>
+              </div>
+
+              {/* Global Search — Persistent in Workstation */}
+              <div className="flex-1 max-w-xl mx-8 hidden md:block">
+                <SearchBlock
+                  endpoint="/api/admin/search"
+                  resultsBase="/admin/search"
+                  variant="admin"
+                  placeholder={`Search ${workstationLabel.toLowerCase()}...`}
+                />
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="hidden lg:flex flex-col text-right mr-4 border-r border-slate-200 dark:border-white/10 pr-6">
+                   <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Session Status</p>
+                   <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">SECURE RELAY</p>
+                </div>
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="p-2.5 bg-slate-100 dark:bg-white/5 hover:bg-rose-600 text-slate-500 dark:text-slate-400 hover:text-white rounded-xl border border-slate-200 dark:border-white/10 transition-all group shadow-sm dark:shadow-xl active:scale-95"
+                  title="Close Workstation"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Workstation Content - Full Screen Edge-to-Edge */}
+            <div className="flex-1 overflow-y-auto bg-white dark:bg-[#00122B] custom-scrollbar transition-colors">
+               {/* MAIN CONTENT AREA: 100% WIDTH */}
+               <div className="w-full p-8 lg:p-12">
+                  {children}
+               </div>
+            </div>
+
+            {/* Terminal Status Bar */}
+            <div className="bg-slate-50 dark:bg-[#00122B] h-8 border-t border-slate-200 dark:border-white/5 flex items-center px-6 justify-between flex-shrink-0 transition-colors">
+               <p className="text-[6px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.4em]">Property of Greggory Systems & Strategy Firm © {new Date().getFullYear()}</p>
+               <p className="text-[6px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-[0.6em]">SECURE ARCHITECTURE v4.0</p>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default AdminLayout;

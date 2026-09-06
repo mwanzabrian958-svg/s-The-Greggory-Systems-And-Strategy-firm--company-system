@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;700;900&family=Space+Mono:wght@400;700&family=Poppins:wght@300;400;600;900&family=Lato:wght@300;400;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  display: block; /* Removed flex to allow normal flow */
+  min-width: 100vw;
+  min-height: 100vh;
+  overflow-x: hidden;
+  @apply bg-white dark:bg-[#00122B] text-slate-900 dark:text-white transition-colors duration-300;
+}
+
+/* Brand selection highlight — blue & white */
+::selection {
+  @apply bg-[#002D62] text-white;
+}
+
+/* Scrollbar Styling - Material Theme Style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-50 dark:bg-[#00122B];
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-[#0E3A6E] rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-[#002D62] dark:bg-[#60A5FA];
+}
+
+.font-heading {
+  font-family: 'Poppins', sans-serif;
+}
+
+.font-mono {
+  font-family: 'Space Mono', monospace;
+}
+
+/* Custom shadow for Material theme */
+.shadow-material {
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.5);
+}
+
+.bg-landing-blue {
+  @apply bg-[#002D62];
+}
+
+.bg-firm-black {
+  @apply bg-white dark:bg-[#00122B];
+}
