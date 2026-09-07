@@ -19,6 +19,9 @@ yarn-debug.log*
 yarn-error.log*
 logs/
 
+# DB sync backups (contain data dumps)
+scripts/.backup/
+
 # IDE / editor files
 .idea/
 *.swp

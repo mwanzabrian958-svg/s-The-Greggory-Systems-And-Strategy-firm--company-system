@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { AdminRouter } from './admin/AdminRouter'
+
+// Code-split: the entire admin suite loads on demand, never in the entry bundle
+const AdminRouter = lazy(() => import('./admin/AdminRouter').then(m => ({ default: m.AdminRouter })))
 import {
   Crown, FolderKanban, Briefcase, ClipboardList, Palette, Server,
   TrendingUp, Megaphone, BarChart3, UserCheck, Calculator, Building2, LayoutGrid
@@ -187,7 +189,11 @@ export default function App() {
       <Routes location={location} key={location.pathname}>
           <Route path="/" element={<LandingPage />} />
           <Route path="/dashboard" element={<InstitutionalCockpit />} />
-          <Route path="/admin/*" element={<AdminRouter />} />
+          <Route path="/admin/*" element={
+            <Suspense fallback={<div className="min-h-screen w-full bg-[#00122B]" />}>
+              <AdminRouter />
+            </Suspense>
+          } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     </main>

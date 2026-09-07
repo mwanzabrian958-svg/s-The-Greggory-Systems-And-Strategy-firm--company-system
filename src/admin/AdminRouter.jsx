@@ -1,52 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AdminRoute } from './components/AdminRoute';
 import AdminLayout from './components/AdminLayout';
-import { Login } from './pages/Login';
-import { AdvancedDashboard } from './pages/AdvancedDashboard';
-import { Users } from './pages/Users';
-import { Content } from './pages/Content';
-import { Projects } from './pages/Projects';
-import { Applications } from './pages/Applications';
-import { ActivityLogs } from './pages/Activity';
-import { Settings } from './pages/Settings';
-import { Support } from './pages/Support';
-import { Security } from './pages/Security';
-import { Reports } from './pages/Reports';
-import { Billing } from './pages/Financial';
-import { CreateInvoice } from './pages/CreateInvoice';
-import { ManualEntry } from './pages/ManualEntry';
-import { ProfitLossReport } from './pages/ProfitLossReport';
-import { InvoicePreview } from './pages/InvoicePreview';
-import { UserForm } from './pages/UserForm';
-import { UserDetail } from './pages/UserDetail';
-import { CreateBlog } from './pages/CreateBlog';
-import { BlogPreview } from './pages/BlogPreview';
-import { Personnel } from './pages/Personnel';
-import { CreatePersonnel } from './pages/CreatePersonnel';
-import { PersonnelPreview } from './pages/PersonnelPreview';
-import { ProjectTasks } from './pages/ProjectTasks';
-import { ProjectDetail } from './pages/ProjectDetail';
-import { SearchResults } from './pages/SearchResults';
-import { Team } from './pages/Team';
-import { DataSafety } from './pages/DataSafety';
-import { MediaLibrary } from './pages/MediaLibrary';
-import { EmailInbox } from './pages/EmailInbox';
-import { PermissionsManager } from './pages/PermissionsManager';
-import { MpesaSendMoney } from './pages/MpesaSendMoney';
-import ExecutiveDashboard from './pages/ExecutiveDashboard';
-import DevelopmentHub from './pages/DevelopmentHub';
-import ConsultingStudio from './pages/ConsultingStudio';
-import DeliveryCenter from './pages/DeliveryCenter';
-import DesignStudio from './pages/DesignStudio';
-import TechServices from './pages/TechServices';
-import SalesHub from './pages/SalesHub';
-import MarketingCommand from './pages/MarketingCommand';
-import ResearchLab from './pages/ResearchLab';
-import HRTemple from './pages/HRTemple';
-import FinanceLegal from './pages/FinanceLegal';
-import OperationsCenter from './pages/OperationsCenter';
-import DepartmentsHub from './pages/DepartmentsHub';
+
+// ---- Code-split admin pages (loaded on demand per route) ----
+const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const AdvancedDashboard = lazy(() => import('./pages/AdvancedDashboard').then(m => ({ default: m.AdvancedDashboard })));
+const Users = lazy(() => import('./pages/Users').then(m => ({ default: m.Users })));
+const Content = lazy(() => import('./pages/Content').then(m => ({ default: m.Content })));
+const Projects = lazy(() => import('./pages/Projects').then(m => ({ default: m.Projects })));
+const Applications = lazy(() => import('./pages/Applications').then(m => ({ default: m.Applications })));
+const ActivityLogs = lazy(() => import('./pages/Activity').then(m => ({ default: m.ActivityLogs })));
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const Support = lazy(() => import('./pages/Support').then(m => ({ default: m.Support })));
+const Security = lazy(() => import('./pages/Security').then(m => ({ default: m.Security })));
+const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
+const Billing = lazy(() => import('./pages/Financial').then(m => ({ default: m.Billing })));
+const CreateInvoice = lazy(() => import('./pages/CreateInvoice').then(m => ({ default: m.CreateInvoice })));
+const ManualEntry = lazy(() => import('./pages/ManualEntry').then(m => ({ default: m.ManualEntry })));
+const ProfitLossReport = lazy(() => import('./pages/ProfitLossReport').then(m => ({ default: m.ProfitLossReport })));
+const InvoicePreview = lazy(() => import('./pages/InvoicePreview').then(m => ({ default: m.InvoicePreview })));
+const UserForm = lazy(() => import('./pages/UserForm').then(m => ({ default: m.UserForm })));
+const UserDetail = lazy(() => import('./pages/UserDetail').then(m => ({ default: m.UserDetail })));
+const CreateBlog = lazy(() => import('./pages/CreateBlog').then(m => ({ default: m.CreateBlog })));
+const BlogPreview = lazy(() => import('./pages/BlogPreview').then(m => ({ default: m.BlogPreview })));
+const Personnel = lazy(() => import('./pages/Personnel').then(m => ({ default: m.Personnel })));
+const CreatePersonnel = lazy(() => import('./pages/CreatePersonnel').then(m => ({ default: m.CreatePersonnel })));
+const PersonnelPreview = lazy(() => import('./pages/PersonnelPreview').then(m => ({ default: m.PersonnelPreview })));
+const ProjectTasks = lazy(() => import('./pages/ProjectTasks').then(m => ({ default: m.ProjectTasks })));
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
+const SearchResults = lazy(() => import('./pages/SearchResults').then(m => ({ default: m.SearchResults })));
+const Team = lazy(() => import('./pages/Team').then(m => ({ default: m.Team })));
+const DataSafety = lazy(() => import('./pages/DataSafety').then(m => ({ default: m.DataSafety })));
+const MediaLibrary = lazy(() => import('./pages/MediaLibrary').then(m => ({ default: m.MediaLibrary })));
+const EmailInbox = lazy(() => import('./pages/EmailInbox').then(m => ({ default: m.EmailInbox })));
+const PermissionsManager = lazy(() => import('./pages/PermissionsManager').then(m => ({ default: m.PermissionsManager })));
+const MpesaSendMoney = lazy(() => import('./pages/MpesaSendMoney').then(m => ({ default: m.MpesaSendMoney })));
+const ExecutiveDashboard = lazy(() => import('./pages/ExecutiveDashboard'));
+const DevelopmentHub = lazy(() => import('./pages/DevelopmentHub'));
+const ConsultingStudio = lazy(() => import('./pages/ConsultingStudio'));
+const DeliveryCenter = lazy(() => import('./pages/DeliveryCenter'));
+const DesignStudio = lazy(() => import('./pages/DesignStudio'));
+const TechServices = lazy(() => import('./pages/TechServices'));
+const SalesHub = lazy(() => import('./pages/SalesHub'));
+const MarketingCommand = lazy(() => import('./pages/MarketingCommand'));
+const ResearchLab = lazy(() => import('./pages/ResearchLab'));
+const HRTemple = lazy(() => import('./pages/HRTemple'));
+const FinanceLegal = lazy(() => import('./pages/FinanceLegal'));
+const OperationsCenter = lazy(() => import('./pages/OperationsCenter'));
+const DepartmentsHub = lazy(() => import('./pages/DepartmentsHub'));
+
 import { PERMISSIONS } from './utils/permissions';
 import { apiCall } from '../services/api';
 
@@ -85,6 +88,12 @@ export function AdminRouter() {
   );
 
   return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#00122B] flex flex-col items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-[7px] font-black text-slate-600 uppercase tracking-[0.6em]">Loading Module...</p>
+      </div>
+    }>
     <Routes>
       <Route path="login" element={isAuthenticated ? <Navigate to="/admin" replace /> : <Login onLoginSuccess={(u) => { setUser(u); setIsAuthenticated(true); }} />} />
 
@@ -148,5 +157,6 @@ export function AdminRouter() {
         )
       } />
     </Routes>
+    </Suspense>
   );
 }

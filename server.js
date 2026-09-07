@@ -5,6 +5,9 @@ import mysql from "mysql2/promise";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import bcryptjs from "bcryptjs";
+import fs from "fs";
+import path from "path";
+import { createBlogRouter } from "./modules/blog.js";
 
 dotenv.config();
 
@@ -15,19 +18,103 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "MASTER-GSS-SECRET-2025";
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || JWT_SECRET;
 
-// --- DATABASE CONFIGURATION ---
-const mainDb = mysql.createPool({
-  host: process.env.DB_HOST || '127.0.0.1',
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'the_greggory_systems_and_strategy_firm_db_main',
+// --- DATABASE FAILOVER CLUSTER (cloud-primary, local-standby) ---
+// Links BOTH databases to this system: Aiven cloud (primary) + local XAMPP
+// MariaDB (hot standby). If cloud goes down, auto-fails-over to local within
+// ~8s and reclaims cloud when it recovers. DB_PREFER=cloud makes cloud primary.
+const IS_LOCAL = (h) => ["localhost", "127.0.0.1", "::1"].includes((h || "").toLowerCase());
+
+function cloudSslOptions() {
+  if (process.env.DB_SSL !== "true") return {};
+  const caPath = path.join(process.cwd(), "server", "config", "aiven-ca.pem");
+  return { ssl: { ca: fs.readFileSync(caPath, "utf8"), minVersion: "TLSv1.2", rejectUnauthorized: false } };
+}
+
+function buildNode(opts) {
+  return {
+    ...opts,
+    database: process.env.DB_NAME || "the_greggory_systems_and_strategy_firm_db_main",
+    waitForConnections: true,
+    connectionLimit: 10,
+    connectTimeout: 8000,
+  };
+}
+
+const dbCluster = mysql.createPoolCluster({
+  canRetry: true,
+  removeNodeErrorCount: 1,
+  restoreNodeTimeout: 5000,
+  defaultSelector: "ORDER",
+});
+
+const prefer = (process.env.DB_PREFER || "cloud").toLowerCase();
+const nodes = [];
+
+const cloudHost = process.env.DB_HOST || process.env.DB_CLOUD_HOST;
+if (cloudHost) {
+  nodes.push({
+    name: IS_LOCAL(cloudHost) ? "local" : "claude",
+    opts: buildNode({
+      host: cloudHost,
+      port: Number(process.env.DB_PORT || process.env.DB_CLOUD_PORT || 3306),
+      user: process.env.DB_USER || process.env.DB_CLOUD_USER || "avnadmin",
+      password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : process.env.DB_CLOUD_PASSWORD,
+      ...cloudSslOptions(),
+    }),
+  });
+}
+
+const hasLocal = process.env.DB_HOST_2 || process.env.DB_PORT_2 || process.env.DB_USER_2;
+if (hasLocal) {
+  nodes.push({
+    name: "local",
+    opts: buildNode({
+      host: process.env.DB_HOST_2 || "127.0.0.1",
+      port: Number(process.env.DB_PORT_2 || 3306),
+      user: process.env.DB_USER_2 || "root",
+      password: process.env.DB_PASSWORD_2 !== undefined ? process.env.DB_PASSWORD_2 : "",
+      ssl: process.env.DB_SSL_2 === "true",
+    }),
+  });
+}
+
+if (prefer === "cloud") {
+  nodes.sort((a, b) => (a.name === "claude" ? -1 : b.name === "claude" ? 1 : 0));
+}
+
+nodes.forEach((n, i) => dbCluster.add(`db-${n.name}-${i}`, n.opts));
+
+dbCluster.on("offline", (id) => console.error(`[DB CLUSTER] ${id} offline — failing over to the other database`));
+dbCluster.on("remove", (id) => console.error(`[DB CLUSTER] ${id} removed from rotation`));
+dbCluster.on("warn", (err) => console.warn(`[DB CLUSTER] warn: ${err.code || err.message}`));
+
+const mainDb = dbCluster.of("*", "ORDER");
+
+// --- LOCAL STANDBY POOL (dual-write target) ---
+// User-registration writes go to BOTH the cluster (cloud primary) AND this local
+// pool simultaneously, so both databases always have the same user records.
+const localPool = mysql.createPool({
+  host: process.env.DB_HOST_2 || "127.0.0.1",
+  port: Number(process.env.DB_PORT_2 || 3306),
+  user: process.env.DB_USER_2 || "root",
+  password: process.env.DB_PASSWORD_2 !== undefined ? process.env.DB_PASSWORD_2 : "",
+  database: process.env.DB_NAME || "the_greggory_systems_and_strategy_firm_db_main",
   waitForConnections: true,
   connectionLimit: 10,
-  maxIdle: 5,
-  idleTimeout: 60000,
-  ...(process.env.DB_SSL === "true" ? { ssl: { minVersion: "TLSv1.2", rejectUnauthorized: false } } : {}),
 });
+
+// Execute a write query on BOTH databases simultaneously.
+// Cloud (via cluster) is primary; local is kept in sync. If local is unreachable,
+// the write still succeeds on cloud (local sync can be re-run via sync script).
+async function dualWrite(sql, values) {
+  const cloudResult = await mainDb.query(sql, values);
+  try {
+    await localPool.query(sql, values);
+  } catch (localErr) {
+    console.warn("[DUAL-WRITE] local standby write failed (cloud OK):", localErr.code || localErr.message);
+  }
+  return cloudResult;
+}
 
 // --- AUTH HELPERS ---
 function signAdminSessionToken(userId) {
@@ -94,6 +181,65 @@ const getProfilePhotoData = (user) => {
     return `data:${mimeType};base64,${base64}`;
 };
 
+// Profile Photo stream by role + id (used by AdminLayout navbar, UserDetail, Settings)
+// Returns the raw image bytes with correct Content-Type so <img src=...> works directly
+app.get("/api/admin/profile-photo/:role/:id", async (req, res) => {
+    const { role, id } = req.params;
+    try {
+        let table = "admin_users";
+        if (role === "developer") table = "developer_users";
+        else if (role === "user" || role === "client") table = "users";
+
+        const [rows] = await mainDb.query(
+            `SELECT profile_photo_blob, profile_photo_mime_type FROM ${table} WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+            [id]
+        );
+        if (rows.length > 0 && rows[0].profile_photo_blob) {
+            const mime = rows[0].profile_photo_mime_type || "image/jpeg";
+            res.set("Content-Type", mime);
+            res.set("Cache-Control", "no-cache");
+            return res.send(Buffer.from(rows[0].profile_photo_blob));
+        }
+        res.status(404).json({ success: false, message: "No photo" });
+    } catch (err) { res.status(500).json({ success: false }); }
+});
+
+// Upload profile photo (Settings page) — writes to cloud + local simultaneously
+app.post("/api/admin/profile-photo", authenticateAdmin, async (req, res) => {
+    const { userId, role, imageBase64, fileName, contentType } = req.body;
+    if (!userId || !imageBase64) return res.status(400).json({ success: false, message: "Missing fields" });
+    try {
+        const buffer = Buffer.from(imageBase64.replace(/^data:image\/\w+;base64,/, ""), "base64");
+        const mime = contentType || "image/jpeg";
+        let table = "admin_users";
+        if (role === "developer") table = "developer_users";
+        else if (role === "user" || role === "client") table = "users";
+
+        await dualWrite(
+            `UPDATE ${table} SET profile_photo_blob = ?, profile_photo_mime_type = ?, profile_photo_file_name = ?, updated_at = NOW() WHERE id = ?`,
+            [buffer, mime, fileName || "profile.jpg", userId]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ success: false, message: "Upload failed" }); }
+});
+
+// Delete profile photo (Settings page)
+app.delete("/api/admin/profile-photo", authenticateAdmin, async (req, res) => {
+    const { userId, role } = req.body;
+    if (!userId) return res.status(400).json({ success: false });
+    try {
+        let table = "admin_users";
+        if (role === "developer") table = "developer_users";
+        else if (role === "user" || role === "client") table = "users";
+
+        await dualWrite(
+            `UPDATE ${table} SET profile_photo_blob = NULL, profile_photo_mime_type = NULL, profile_photo_file_name = NULL, updated_at = NOW() WHERE id = ?`,
+            [userId]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ success: false }); }
+});
+
 // --- AUTH & IDENTITY ---
 
 // Lookup photo by email
@@ -159,7 +305,7 @@ app.post("/api/admin-verification/register", async (req, res) => {
     try {
         const hashedPassword = await bcryptjs.hash(password, 10);
         const displayName = `${first_name} ${last_name}`;
-        const [result] = await mainDb.query(
+        const [result] = await dualWrite(
             `INSERT INTO admin_users (first_name, last_name, display_name, email, password_hash, admin_level, profile_image_id, is_active, created_at)
              VALUES (?, ?, ?, ?, ?, 'admin', ?, 1, NOW())`,
             [first_name, last_name, displayName, email, hashedPassword, profile_image_id || null]
@@ -343,12 +489,12 @@ app.post("/api/users/admin-create", authenticateAdmin, async (req, res) => {
             body.manual_projects || null, req.adminId
         ];
         if (body.role === 'admin' || body.role === 'developer') {
-            const [result] = await mainDb.query(
+            const [result] = await dualWrite(
                 "INSERT INTO admin_users (first_name, last_name, display_name, email, password_hash, admin_level, department, mission_briefing, phone_number, alt_phone, physical_address, id_number, expertise, private_notes, emergency_contact_name, emergency_contact_phone, manual_projects, is_active, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?)",
                 [first_name, last_name, displayName, email, hash, body.role, ...shared]);
             return res.json({ success: true, userId: result.insertId });
         }
-        const [result] = await mainDb.query(
+        const [result] = await dualWrite(
             "INSERT INTO users (first_name, last_name, display_name, email, password_hash, primary_role, department, mission_briefing, phone_number, alt_phone, physical_address, id_number, expertise, private_notes, emergency_contact_name, emergency_contact_phone, manual_projects, is_active, created_at, created_by) VALUES (?, ?, ?, ?, ?, 'user', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), ?)",
             [first_name, last_name, displayName, email, hash, ...shared]);
         res.json({ success: true, userId: result.insertId });
@@ -414,6 +560,12 @@ app.get("/api/admin/settings", async (req, res) => {
         res.json({ success: true, settings: m });
     } catch (error) { res.status(500).json({ success: false }); }
 });
+
+// ======================== BLOG MANAGEMENT ========================
+// Dedicated module in ./modules/blog.js — shares the same databases as the
+// website backend (both use the DB_* vars from .env). Creates/edits here are
+// visible on the website and vice-versa.
+app.use("/api/blog-articles", createBlogRouter(mainDb));
 
 // Search Relay
 app.get("/api/admin/search", async (req, res) => {

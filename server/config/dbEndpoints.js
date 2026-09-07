@@ -62,9 +62,8 @@ function endpoints() {
   // 1) LOCAL endpoint (XAMPP/MariaDB on 127.0.0.1:3306) — preferred when set.
   const hasExplicitSecond =
     process.env.DB_HOST_2 || process.env.DB_PORT_2 || process.env.DB_USER_2;
-  if (hasExplicitSecond) {
-    list.push(
-      buildEndpoint({
+  const local = hasExplicitSecond
+    ? buildEndpoint({
         host: process.env.DB_HOST_2 || "127.0.0.1",
         port: process.env.DB_PORT_2 || 3306,
         user: process.env.DB_USER_2 || "root",
@@ -76,16 +75,15 @@ function endpoints() {
         ssl: process.env.DB_SSL_2 === "true",
         label: "local",
       })
-    );
-  }
+    : null;
+  if (local) list.push(local);
 
   // 2) CLOUD endpoint (Aiven) — primary in production (Render), fallback in
   //    dev. Legacy DB_CLOUD_* vars still win if the main DB_* ones are unset
   //    so older .env files (backup scripts) keep working.
   const h1 = process.env.DB_HOST || process.env.DB_CLOUD_HOST;
-  if (h1) {
-    list.push(
-      buildEndpoint({
+  const cloud = h1
+    ? buildEndpoint({
         host: h1,
         port: process.env.DB_PORT || process.env.DB_CLOUD_PORT,
         user: process.env.DB_USER || process.env.DB_CLOUD_USER || "avnadmin",
@@ -96,9 +94,15 @@ function endpoints() {
         ssl: cloudSslEnabled(),
         label: IS_LOCAL_HOST(h1) ? "local" : "claude",
       })
-    );
-  }
+    : null;
+  if (cloud) list.push(cloud);
 
+  // DB_PREFER controls which endpoint the cluster tries first:
+  //   "cloud" -> Aiven primary, XAMPP is the hot standby  (default in this project)
+  //   "local" -> XAMPP primary, Aiven is the standby      (original behaviour)
+  // ORDER selector below always tries node #1 first, so ordering == priority.
+  const prefer = (process.env.DB_PREFER || "cloud").toLowerCase();
+  if (prefer === "cloud" && cloud && local) return [cloud, local];
   return list;
 }
 

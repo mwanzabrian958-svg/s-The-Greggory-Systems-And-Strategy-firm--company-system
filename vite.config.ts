@@ -24,5 +24,16 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'framer-motion'],
+          'vendor-charts': ['recharts'],
+        }
+      }
+    }
   }
 })
