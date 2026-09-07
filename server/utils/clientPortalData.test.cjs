@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildClientPortalPayload } = require('./clientPortalData');
+const { buildClientPortalPayload } = require('./clientPortalData.cjs');
 
 test('buildClientPortalPayload derives business metrics from project rows', () => {
   const payload = buildClientPortalPayload({
