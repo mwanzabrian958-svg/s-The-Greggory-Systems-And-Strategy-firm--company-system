@@ -6,29 +6,29 @@ const requireAdmin = require('../middleware/auth');
 // Get management info by company
 router.get('/:companyId', (req, res) => {
   const { companyId } = req.params;
-  
+
   const query = `
     SELECT * FROM management_info 
     WHERE company_id = ?
     ORDER BY updated_at DESC 
     LIMIT 1
   `;
-  
+
   db.query(query, [companyId], (err, results) => {
     if (err) {
       console.error('Error fetching management info:', err);
       return res.status(500).json({ error: 'Failed to fetch management info' });
     }
-    
+
     if (results.length === 0) {
       // Return default values if no management info exists
       return res.json({
         station_manager: 'Not specified',
         service_area: 'Not specified',
-        base_location: 'Not specified'
+        base_location: 'Not specified',
       });
     }
-    
+
     res.json(results[0]);
   });
 });
@@ -37,7 +37,7 @@ router.get('/:companyId', (req, res) => {
 router.put('/:companyId', requireAdmin, (req, res) => {
   const { companyId } = req.params;
   const { station_manager, service_area, base_location, updated_by } = req.body;
-  
+
   const query = `
     INSERT INTO management_info (company_id, station_manager, service_area, base_location, updated_by)
     VALUES (?, ?, ?, ?, ?)
@@ -48,15 +48,19 @@ router.put('/:companyId', requireAdmin, (req, res) => {
     updated_by = VALUES(updated_by),
     updated_at = NOW()
   `;
-  
-  db.query(query, [companyId, station_manager, service_area, base_location, updated_by], (err, result) => {
-    if (err) {
-      console.error('Error updating management info:', err);
-      return res.status(500).json({ error: 'Failed to update management info' });
-    }
-    
-    res.json({ message: 'Management info updated successfully' });
-  });
+
+  db.query(
+    query,
+    [companyId, station_manager, service_area, base_location, updated_by],
+    (err, result) => {
+      if (err) {
+        console.error('Error updating management info:', err);
+        return res.status(500).json({ error: 'Failed to update management info' });
+      }
+
+      res.json({ message: 'Management info updated successfully' });
+    },
+  );
 });
 
 module.exports = router;

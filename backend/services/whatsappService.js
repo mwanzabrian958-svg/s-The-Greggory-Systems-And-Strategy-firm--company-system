@@ -11,11 +11,14 @@ try {
   if (apiKey && apiKey.trim()) {
     whatsapp = africastalking({
       username,
-      apiKey
+      apiKey,
     }).WhatsApp;
   }
 } catch (error) {
-  console.warn('[WHATSAPP SERVICE] Africa\'s Talking client init failed, using simulated relay fallback:', error.message);
+  console.warn(
+    "[WHATSAPP SERVICE] Africa's Talking client init failed, using simulated relay fallback:",
+    error.message,
+  );
 }
 
 // --- Meta WhatsApp Cloud API (preferred when its credentials are present) ---
@@ -49,8 +52,8 @@ function buildSimulatedResponse(provider, action) {
       simulated: true,
       messageId: `sim-${Date.now()}`,
       status: 'queued-for-delivery',
-      note: 'Provider credentials were unavailable, so the message was recorded locally for relay.'
-    }
+      note: 'Provider credentials were unavailable, so the message was recorded locally for relay.',
+    },
   };
 }
 
@@ -81,15 +84,21 @@ async function dispatchWhatsApp(toArray, message, opts = {}) {
             type: 'text',
             text: { body: message },
           }),
-        }
+        },
       );
       const payload = await httpRes.json().catch(() => ({}));
       if (!httpRes.ok) {
-        const err = new Error(payload?.error?.message || `WhatsApp Cloud API HTTP ${httpRes.status}`);
+        const err = new Error(
+          payload?.error?.message || `WhatsApp Cloud API HTTP ${httpRes.status}`,
+        );
         err.providerPayload = payload;
         throw err;
       }
-      results.push({ to, messageId: (payload && payload.messages && payload.messages[0] && payload.messages[0].id) || null });
+      results.push({
+        to,
+        messageId:
+          (payload && payload.messages && payload.messages[0] && payload.messages[0].id) || null,
+      });
     }
     return { provider: 'meta-cloud', response: { results } };
   }
@@ -114,20 +123,28 @@ async function sendWhatsAppMessage(fromPhone, message) {
     // Ensure sender phone number is in correct format (starts with +)
     const formattedFromPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
 
-    console.log(`[WHATSAPP SERVICE] Sending WhatsApp FROM ${formattedFromPhone} TO ${COMPANY_WHATSAPP_NUMBER}: ${message}`);
+    console.log(
+      `[WHATSAPP SERVICE] Sending WhatsApp FROM ${formattedFromPhone} TO ${COMPANY_WHATSAPP_NUMBER}: ${message}`,
+    );
 
     if (!providerConfigured()) {
-      console.warn('[WHATSAPP SERVICE] No provider credentials configured; using simulated relay path');
+      console.warn(
+        '[WHATSAPP SERVICE] No provider credentials configured; using simulated relay path',
+      );
       return buildSimulatedResponse('whatsapp', 'send');
     }
 
-    const result = await dispatchWhatsApp([COMPANY_WHATSAPP_NUMBER], message, { from: formattedFromPhone });
+    const result = await dispatchWhatsApp([COMPANY_WHATSAPP_NUMBER], message, {
+      from: formattedFromPhone,
+    });
     console.log('[WHATSAPP SERVICE] WhatsApp message sent successfully:', result.response);
 
     return { success: true, data: result.response };
   } catch (error) {
     console.error('[WHATSAPP SERVICE] Error sending WhatsApp message:', error);
-    console.warn('[WHATSAPP SERVICE] Falling back to simulated relay response after provider error');
+    console.warn(
+      '[WHATSAPP SERVICE] Falling back to simulated relay response after provider error',
+    );
     return buildSimulatedResponse('whatsapp', 'send');
   }
 }
@@ -141,27 +158,33 @@ async function sendWhatsAppMessage(fromPhone, message) {
 async function sendBulkWhatsApp(phoneNumbers, message) {
   try {
     // Format all phone numbers
-    const formattedPhones = phoneNumbers.map(phone => 
-      phone.startsWith('+') ? phone : `+${phone}`
+    const formattedPhones = phoneNumbers.map((phone) =>
+      phone.startsWith('+') ? phone : `+${phone}`,
     );
 
     console.log(`[WHATSAPP SERVICE] Sending bulk WhatsApp to ${formattedPhones.length} recipients`);
 
     if (!providerConfigured()) {
-      console.warn('[WHATSAPP SERVICE] No provider credentials configured; using simulated bulk relay path');
+      console.warn(
+        '[WHATSAPP SERVICE] No provider credentials configured; using simulated bulk relay path',
+      );
       return buildSimulatedResponse('whatsapp', 'bulk-send');
     }
 
-    const result = await dispatchWhatsApp(formattedPhones, message, { from: COMPANY_WHATSAPP_NUMBER });
+    const result = await dispatchWhatsApp(formattedPhones, message, {
+      from: COMPANY_WHATSAPP_NUMBER,
+    });
     console.log('[WHATSAPP SERVICE] Bulk WhatsApp sent successfully:', result.response);
 
     return {
       success: true,
-      data: result.response
+      data: result.response,
     };
   } catch (error) {
     console.error('[WHATSAPP SERVICE] Error sending bulk WhatsApp:', error);
-    console.warn('[WHATSAPP SERVICE] Falling back to simulated bulk relay response after provider error');
+    console.warn(
+      '[WHATSAPP SERVICE] Falling back to simulated bulk relay response after provider error',
+    );
     return buildSimulatedResponse('whatsapp', 'bulk-send');
   }
 }
@@ -203,7 +226,8 @@ async function sendWhatsAppToUserStrict(toPhone, message) {
       success: false,
       simulated: false,
       error: 'NO_PROVIDER',
-      message: 'No WhatsApp provider is configured. Set WHATSAPP_CLOUD_TOKEN + WHATSAPP_CLOUD_PHONE_ID (Meta Cloud API) or AFRICASTALKING_USERNAME + AFRICASTALKING_API_KEY (Africa\'s Talking) in .env.',
+      message:
+        "No WhatsApp provider is configured. Set WHATSAPP_CLOUD_TOKEN + WHATSAPP_CLOUD_PHONE_ID (Meta Cloud API) or AFRICASTALKING_USERNAME + AFRICASTALKING_API_KEY (Africa's Talking) in .env.",
     };
   }
   try {
@@ -224,5 +248,5 @@ module.exports = {
   sendWhatsAppToUserStrict,
   providerConfigured,
   activeProvider,
-  COMPANY_WHATSAPP_NUMBER
+  COMPANY_WHATSAPP_NUMBER,
 };

@@ -20,48 +20,76 @@ const PORT = process.env.PORT || 5000;
 
 // Security middleware
 app.use(helmet());
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
 
-    // Allow any localhost origin
-    if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
-      return callback(null, true);
-    }
+      // Allow any localhost origin
+      if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+        return callback(null, true);
+      }
 
-    // Allow local network IP addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
-    if (origin.startsWith('http://192.168.') || origin.startsWith('https://192.168.')) {
-      return callback(null, true);
-    }
-    if (origin.startsWith('http://10.') || origin.startsWith('https://10.')) {
-      return callback(null, true);
-    }
-    if (origin.startsWith('http://172.1') || origin.startsWith('https://172.1') ||
-        origin.startsWith('http://172.2') || origin.startsWith('https://172.2') ||
-        origin.startsWith('http://172.3') || origin.startsWith('https://172.3')) {
-      return callback(null, true);
-    }
+      // Allow local network IP addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+      if (origin.startsWith('http://192.168.') || origin.startsWith('https://192.168.')) {
+        return callback(null, true);
+      }
+      if (origin.startsWith('http://10.') || origin.startsWith('https://10.')) {
+        return callback(null, true);
+      }
+      if (
+        origin.startsWith('http://172.1') ||
+        origin.startsWith('https://172.1') ||
+        origin.startsWith('http://172.2') ||
+        origin.startsWith('https://172.2') ||
+        origin.startsWith('http://172.3') ||
+        origin.startsWith('https://172.3')
+      ) {
+        return callback(null, true);
+      }
 
-    // Allow specific origins
-    const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:8080', 'http://localhost:4173', 'http://192.168.43.197:5173'];
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+      // Allow specific origins
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:3000',
+        'http://localhost:8080',
+        'http://localhost:4173',
+        'http://192.168.43.197:5173',
+      ];
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+);
 
-// Rate limiting
+// Rate limiting — general API
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests, please try again later.' },
 });
 app.use(limiter);
+
+// Rate limiting — auth routes (stricter)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many login attempts, please try again later.' },
+});
+app.use('/api/users/login', authLimiter);
+app.use('/api/admin-verification/authenticate-enhanced', authLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -76,9 +104,54 @@ app.use((req, res, next) => {
   next();
 });
 
+/**
+ * @swagger
+ * /api/health:
+ *   get:
+ *     summary: Health check
+ *     tags: [System]
+ *     responses:
+ *       200:
+ *         description: Server is running
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: OK
+ *                 message:
+ *                   type: string
+ *                   example: Server is running
+ */
 // Routes
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+// GET /api/health — liveness probe. Performs a fast, guarded DB connectivity
+// check (skipped under vitest so tests stay fast and hermetic).
+app.get('/api/health', async (req, res) => {
+  const payload = {
+    status: 'OK',
+    message: 'Server is running',
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+  };
+
+  if (!process.env.VITEST) {
+    try {
+      await Promise.race([
+        db.promise().query('SELECT 1'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 2500)),
+      ]);
+      payload.database = 'connected';
+    } catch (error) {
+      payload.database = 'unreachable';
+    }
+  } else {
+    payload.database = 'skipped (test mode)';
+  }
+
+  res.json(payload);
 });
 
 // Import routes
@@ -107,6 +180,21 @@ app.use('/api/admin-verification', adminVerificationRoutes);
 app.use('/api/developer-verification', developerVerificationRoutes);
 app.use('/api/easy-admin', easyAdminRoutes);
 
+// API Documentation
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const setupSwagger = require('./docs/swagger');
+    setupSwagger(app);
+  } catch (error) {
+    // Docs are optional — requires swagger-jsdoc + swagger-ui-express.
+    // Never let a missing docs dependency take down the API or the tests.
+    console.warn(
+      '[API DOCS] Swagger not mounted (install swagger-jsdoc + swagger-ui-express to enable): ' +
+        error.message,
+    );
+  }
+}
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('[ERROR]', err.stack);
@@ -114,7 +202,7 @@ app.use((err, req, res, next) => {
     success: false,
     message: 'Server error occurred',
     error: err.message || 'Something went wrong!',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -124,10 +212,16 @@ app.use((req, res) => {
     success: false,
     message: 'API endpoint not found',
     path: req.originalUrl,
-    method: req.method
+    method: req.method,
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT} (accessible from all network interfaces)`);
-});
+// Only listen when run directly (`node backend/server.js`).
+// When required by tests (supertest), just export the app without binding a port.
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT} (accessible from all network interfaces)`);
+  });
+}
+
+module.exports = app;

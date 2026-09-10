@@ -1,10 +1,10 @@
-const nodemailer = require("nodemailer");
-require("dotenv").config();
+const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: process.env.SMTP_PORT || 465,
-  secure: process.env.SMTP_SECURE === "true",
+  secure: process.env.SMTP_SECURE === 'true',
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -20,14 +20,7 @@ const DEFAULT_FROM =
  * When SMTP_PASS is not configured (local/dev/test) it simulates the send so
  * every caller still gets a definitive success/response to build UI on.
  */
-const sendMail = async ({
-  to,
-  subject,
-  html,
-  text,
-  attachments = [],
-  from = DEFAULT_FROM,
-}) => {
+const sendMail = async ({ to, subject, html, text, attachments = [], from = DEFAULT_FROM }) => {
   const mailOptions = {
     from,
     to,
@@ -37,12 +30,14 @@ const sendMail = async ({
     attachments: attachments.map((a) => ({
       filename: a.filename,
       content: a.content,
-      contentType: a.contentType || "application/pdf",
+      contentType: a.contentType || 'application/pdf',
     })),
   };
 
   if (!process.env.SMTP_PASS) {
-    console.log(`[EMAIL SIMULATION] To: ${to} | Subject: ${subject} | Attachments: ${attachments.length}`);
+    console.log(
+      `[EMAIL SIMULATION] To: ${to} | Subject: ${subject} | Attachments: ${attachments.length}`,
+    );
     return { success: true, simulated: true };
   }
 
@@ -86,11 +81,11 @@ const sendInvoiceEmail = async (clientEmail, invoiceData) => {
  */
 const verifySmtp = async () => {
   if (!process.env.SMTP_PASS) {
-    return { ok: true, simulated: true, message: "SMTP_PASS not set — running in simulation mode" };
+    return { ok: true, simulated: true, message: 'SMTP_PASS not set — running in simulation mode' };
   }
   try {
     await transporter.verify();
-    return { ok: true, simulated: false, message: "SMTP connection + authentication OK" };
+    return { ok: true, simulated: false, message: 'SMTP connection + authentication OK' };
   } catch (error) {
     return { ok: false, simulated: false, message: error.message, code: error.code };
   }

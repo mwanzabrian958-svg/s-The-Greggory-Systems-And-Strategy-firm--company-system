@@ -1,31 +1,117 @@
-import { lazy, Suspense, useState, useEffect } from 'react'
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 // Code-split: the entire admin suite loads on demand, never in the entry bundle
-const AdminRouter = lazy(() => import('./admin/AdminRouter').then(m => ({ default: m.AdminRouter })))
+const AdminRouter = lazy(() =>
+  import('./admin/AdminRouter').then((m) => ({ default: m.AdminRouter })),
+);
 import {
-  Crown, FolderKanban, Briefcase, ClipboardList, Palette, Server,
-  TrendingUp, Megaphone, BarChart3, UserCheck, Calculator, Building2, LayoutGrid
-} from 'lucide-react'
+  Crown,
+  Briefcase,
+  Server,
+  Megaphone,
+  UserCheck,
+  Calculator,
+  Building2,
+  LayoutGrid,
+  Target,
+  CheckCircle,
+  Scale,
+  ShieldAlert,
+  Rocket,
+  LogIn,
+} from 'lucide-react';
 
 const DEPARTMENT_TILES = [
-  { path: '/admin/departments/executive', label: 'Executive Office', subtitle: 'Strategy & Oversight', icon: Crown, image: '/department-icons/executive.jpg' },
-  { path: '/admin/departments/development', label: 'Project Development', subtitle: 'Build & Engineering', icon: FolderKanban, image: '/department-icons/development.jpg' },
-  { path: '/admin/departments/consulting', label: 'Business Consulting', subtitle: 'Client Advisory', icon: Briefcase, image: '/department-icons/consulting.jpg' },
-  { path: '/admin/departments/delivery', label: 'Delivery & Implementation', subtitle: 'Rollouts & Timelines', icon: ClipboardList, image: '/department-icons/delivery.jpg' },
-  { path: '/admin/departments/design', label: 'Design Studio', subtitle: 'UI/UX & Brand', icon: Palette, image: '/department-icons/design.jpg' },
-  { path: '/admin/departments/tech', label: 'Technology Services', subtitle: 'Infrastructure & DevOps', icon: Server, image: '/department-icons/it.png' },
-  { path: '/admin/departments/sales', label: 'Sales & Client Relations', subtitle: 'Pipeline & Accounts', icon: TrendingUp, image: '/department-icons/sales.jpg' },
-  { path: '/admin/departments/marketing', label: 'Marketing & Communications', subtitle: 'Campaigns & Content', icon: Megaphone, image: '/department-icons/marketing.png' },
-  { path: '/admin/departments/research', label: 'Research & Analytics', subtitle: 'Insights & Data', icon: BarChart3, image: '/department-icons/research.jpg' },
-  { path: '/admin/departments/hr', label: 'Human Resources', subtitle: 'People & Culture', icon: UserCheck, image: '/department-icons/hr.png' },
-  { path: '/admin/departments/finance-legal', label: 'Finance & Legal', subtitle: 'Ledger & Contracts', icon: Calculator, image: '/department-icons/finance.png' },
-  { path: '/admin/departments/operations', label: 'Operations', subtitle: 'Facilities & Vendors', icon: Building2, image: '/department-icons/operations.jpg' }
-]
+  {
+    path: '/admin/departments/executive-office',
+    label: 'Executive Office',
+    subtitle: 'Strategy & Oversight',
+    icon: Crown,
+    image: '/department-icons/executive.jpg',
+  },
+  {
+    path: '/admin/departments/finance-legal',
+    label: 'Finance & Legal',
+    subtitle: 'Ledger & Contracts',
+    icon: Calculator,
+    image: '/department-icons/finance.png',
+  },
+  {
+    path: '/admin/departments/human-resources',
+    label: 'Human Resources',
+    subtitle: 'People & Culture',
+    icon: UserCheck,
+    image: '/department-icons/hr.png',
+  },
+  {
+    path: '/admin/departments/information-technology',
+    label: 'IT Services',
+    subtitle: 'Infrastructure & DevOps',
+    icon: Server,
+    image: '/department-icons/it.png',
+  },
+  {
+    path: '/admin/departments/marketing',
+    label: 'Marketing',
+    subtitle: 'Campaigns & Content',
+    icon: Megaphone,
+    image: '/department-icons/marketing.png',
+  },
+  {
+    path: '/admin/departments/operations',
+    label: 'Operations',
+    subtitle: 'Facilities & Vendors',
+    icon: Building2,
+    image: '/department-icons/operations.jpg',
+  },
+  {
+    path: '/admin/departments/strategic-planning',
+    label: 'Strategic Planning',
+    subtitle: 'Roadmap & Goals',
+    icon: Target,
+    image: '/department-icons/strategy.jpg',
+  },
+  {
+    path: '/admin/departments/business-development',
+    label: 'Business Development',
+    subtitle: 'Partnerships & Growth',
+    icon: Briefcase,
+    image: '/department-icons/business.jpg',
+  },
+  {
+    path: '/admin/departments/quality-assurance',
+    label: 'Quality Assurance',
+    subtitle: 'Compliance & Testing',
+    icon: CheckCircle,
+    image: '/department-icons/qa.jpg',
+  },
+  {
+    path: '/admin/departments/legal-affairs',
+    label: 'Legal Affairs',
+    subtitle: 'Contracts & Compliance',
+    icon: Scale,
+    image: '/department-icons/legal.jpg',
+  },
+  {
+    path: '/admin/departments/compliance',
+    label: 'Compliance',
+    subtitle: 'Regulatory & Risk',
+    icon: ShieldAlert,
+    image: '/department-icons/compliance.jpg',
+  },
+  {
+    path: '/admin/departments/special-projects',
+    label: 'Special Projects',
+    subtitle: 'Initiatives & Delivery',
+    icon: Rocket,
+    image: '/department-icons/projects.jpg',
+  },
+];
 
 const LandingPage = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-landing-blue font-sans text-white relative overflow-hidden w-full">
       <motion.div
@@ -42,52 +128,53 @@ const LandingPage = () => {
           />
           <motion.div
             animate={{ rotate: 360 }}
-            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
             className="absolute inset-0 border-t border-r border-[#60A5FA]/25 rounded-full pointer-events-none"
           />
         </div>
 
         <div className="text-center space-y-2 w-full">
-          <h1 className="text-xl md:text-3xl font-black tracking-widest uppercase font-heading drop-shadow-lg">The Greggory Systems</h1>
+          <h1 className="text-xl md:text-3xl font-black tracking-widest uppercase font-heading drop-shadow-lg">
+            The Greggory Systems
+          </h1>
         </div>
 
         <motion.button
           whileHover={{ scale: 1.05, backgroundColor: '#60A5FA', color: '#00122B' }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => navigate('/admin/login')}
+          onClick={() => navigate('/dashboard')}
           className="border border-[#60A5FA] text-[#60A5FA] px-12 py-2.5 rounded-full font-bold text-[10px] tracking-[0.5em] transition-all duration-300 shadow-[0_0_15px_rgba(96,165,250,0.15)] hover:shadow-[#60A5FA]/30 uppercase"
         >
           ENTER
         </motion.button>
       </motion.div>
     </div>
-  )
-}
+  );
+};
 
 const InstitutionalCockpit = () => {
-  const navigate = useNavigate()
-  const [adminUser, setAdminUser] = useState<any>(null)
-  const [checked, setChecked] = useState(false)
+  const navigate = useNavigate();
+  const [adminUser, setAdminUser] = useState<any>(null);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    const sessionStr = localStorage.getItem('gf_admin_session')
+    const sessionStr = localStorage.getItem('gf_admin_session');
     if (sessionStr) {
       try {
-        setAdminUser(JSON.parse(sessionStr).user)
+        setAdminUser(JSON.parse(sessionStr).user);
       } catch (e) {
-        setAdminUser(null)
+        setAdminUser(null);
       }
     }
-    setChecked(true)
-  }, [])
+    setChecked(true);
+  }, []);
 
-  if (!checked) return (
-    <div className="min-h-screen bg-[#00122B] flex items-center justify-center text-white">
-      AUTHENTICATING...
-    </div>
-  )
-
-  const isGuest = !adminUser
+  if (!checked)
+    return (
+      <div className="min-h-screen bg-[#00122B] flex items-center justify-center text-white">
+        Loading...
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#F8FAFC] to-[#E8F0FB] dark:from-[#00122B] dark:to-[#001A3D] text-slate-600 dark:text-zinc-300 font-sans p-8 animate-in fade-in duration-700 w-full">
@@ -95,26 +182,31 @@ const InstitutionalCockpit = () => {
       <div className="flex justify-center mb-12">
         <motion.div
           whileHover={{ scale: 1.02, y: -4 }}
-          onClick={() => navigate(adminUser ? '/admin' : '/admin/login')}
+          onClick={() => navigate('/admin')}
           className="p-10 border-2 border-[#002D62]/10 dark:border-[#3B82F6]/10 bg-white dark:bg-[#032457]/80 text-center cursor-pointer group hover:border-[#002D62]/60 dark:hover:border-[#3B82F6]/60 transition-all duration-500 rounded-3xl shadow-2xl shadow-black/5 relative overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-tr from-[#002D62]/5 dark:from-[#3B82F6]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="w-40 h-40 mx-auto mb-8 rounded-2xl overflow-hidden border border-slate-100 dark:border-[#0E3A6E] shadow-2xl group-hover:shadow-[#002D62]/20 dark:group-hover:shadow-[#3B82F6]/20 transition-all bg-black/5 p-2">
-            <img src="/webmaster_logo.jpg" alt="Web Master" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 rounded-lg" />
+            <img
+              src="/webmaster_logo.jpg"
+              alt="Web Master"
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 rounded-lg"
+            />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-[0.2em] mb-2">Web Master</h3>
-          <p className="text-xs text-[#002D62] dark:text-[#3B82F6] uppercase font-mono tracking-widest">Administrative Management Suite</p>
-          <div className="mt-6 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="px-5 py-2 border border-[#002D62]/40 dark:border-[#3B82F6]/40 rounded-full text-[10px] text-[#002D62] dark:text-[#3B82F6] font-bold tracking-[0.2em]">{adminUser ? 'LAUNCH WORKSTATION' : 'SIGN IN TO ENTER'}</div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-[0.2em] mb-2">
+            Web Master
+          </h3>
+          <p className="text-xs text-[#002D62] dark:text-[#3B82F6] uppercase font-mono tracking-widest">
+            Administrative Management Suite
+          </p>
+          <div className="mt-6 flex justify-center">
+            <div className="px-5 py-2 bg-[#002D62] dark:bg-[#3B82F6] rounded-full text-[10px] text-white font-bold tracking-[0.2em] flex items-center gap-2">
+              <LogIn size={12} />
+              Sign In
+            </div>
           </div>
         </motion.div>
       </div>
-
-      {isGuest && (
-        <div className="max-w-7xl mx-auto mb-8 rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-4 py-3 text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#002D62] dark:text-[#3B82F6]">Session ended — select the Web Master tile or any department to sign back in</p>
-        </div>
-      )}
 
       {/* Departments — 12 tiles, 4 across x 3 down */}
       <div className="max-w-7xl mx-auto">
@@ -122,18 +214,22 @@ const InstitutionalCockpit = () => {
           <div className="w-12 h-12 mx-auto mb-3 bg-[#002D62] rounded-xl flex items-center justify-center text-white shadow-lg border border-white/10">
             <LayoutGrid className="h-6 w-6" />
           </div>
-          <h2 className="text-2xl font-black text-[#002D62] dark:text-white uppercase tracking-tight">Departments</h2>
-          <p className="text-[10px] font-bold text-[#3B82F6] uppercase tracking-[0.4em] mt-2">Master Command — All Divisions</p>
+          <h2 className="text-2xl font-black text-[#002D62] dark:text-white uppercase tracking-tight">
+            Departments
+          </h2>
+          <p className="text-[10px] font-bold text-[#3B82F6] uppercase tracking-[0.4em] mt-2">
+            Master Command — All Divisions
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {DEPARTMENT_TILES.map((dept) => {
-            const Icon = dept.icon
+            const Icon = dept.icon;
             return (
               <motion.button
                 key={dept.path}
                 whileHover={{ y: -4 }}
-                onClick={() => navigate(adminUser ? dept.path : '/admin/login')}
+                onClick={() => navigate(dept.path)}
                 className="group relative bg-white dark:bg-[#032457]/80 border border-slate-200 dark:border-[#0E3A6E] rounded-2xl p-5 text-left shadow-sm hover:shadow-2xl hover:border-[#3B82F6] transition-all duration-300 cursor-pointer"
               >
                 <div className="h-24 mb-4 rounded-xl bg-gradient-to-br from-[#002D62] to-[#032457] flex items-center justify-center overflow-hidden">
@@ -142,32 +238,35 @@ const InstitutionalCockpit = () => {
                       src={dept.image}
                       alt={dept.label}
                       className="h-full w-full object-cover opacity-90 group-hover:scale-105 group-hover:opacity-100 transition-all duration-300"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
                     />
                   ) : (
                     <Icon className="h-10 w-10 text-[#93C5FD] group-hover:text-white group-hover:scale-110 transition-all duration-300" />
                   )}
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{dept.label}</h3>
-                <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#3B82F6] mt-1.5">{dept.subtitle}</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                  {dept.label}
+                </h3>
+                <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#3B82F6] mt-1.5">
+                  {dept.subtitle}
+                </p>
                 <div className="mt-3 inline-flex items-center rounded-full bg-[#3B82F6] px-3 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   Enter Workstation
                 </div>
               </motion.button>
-            )
+            );
           })}
         </div>
       </div>
     </div>
-  )
-}
-
-
-
+  );
+};
 
 export default function App() {
-  const location = useLocation()
-  const isLanding = location.pathname === '/'
+  const location = useLocation();
+  const isLanding = location.pathname === '/';
 
   useEffect(() => {
     // Sync body background with current route theme
@@ -187,15 +286,18 @@ export default function App() {
       }`}
     >
       <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/dashboard" element={<InstitutionalCockpit />} />
-          <Route path="/admin/*" element={
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/dashboard" element={<InstitutionalCockpit />} />
+        <Route
+          path="/admin/*"
+          element={
             <Suspense fallback={<div className="min-h-screen w-full bg-[#00122B]" />}>
               <AdminRouter />
             </Suspense>
-          } />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </main>
-  )
+  );
 }

@@ -45,12 +45,18 @@ router.post('/', async (req, res) => {
     const [result] = await db.promise().query(
       `INSERT INTO contact_forms (name, email, phone, company, subject, message)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, email, phone || null, company || null, subject || null, message]
+      [name, email, phone || null, company || null, subject || null, message],
     );
 
     // REAL-LIFE NOTIF: Notify admins of a new contact inquiry
     // For now, we'll notify user with ID 1 (assumed main admin)
-    await createNotification(1, 'system', 'New Inquiry Received', `New message from ${name} (${company || 'Individual'}).`, 'high');
+    await createNotification(
+      1,
+      'system',
+      'New Inquiry Received',
+      `New message from ${name} (${company || 'Individual'}).`,
+      'high',
+    );
 
     res.status(201).json({ message: 'Contact form submitted successfully', id: result.insertId });
   } catch (error) {

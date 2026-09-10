@@ -12,10 +12,12 @@ const createNotification = async (userId, type, title, message, priority = 'norm
   try {
     if (!userId) return;
 
-    await db.promise().query(
-      'INSERT INTO notifications (user_id, notification_type, title, message, priority, status, created_at) VALUES (?, ?, ?, ?, ?, "unread", NOW())',
-      [userId, type, title, message, priority]
-    );
+    await db
+      .promise()
+      .query(
+        'INSERT INTO notifications (user_id, notification_type, title, message, priority, status, created_at) VALUES (?, ?, ?, ?, ?, "unread", NOW())',
+        [userId, type, title, message, priority],
+      );
     console.log(`[REAL-LIFE NOTIF] Created for User ${userId}: ${title}`);
   } catch (error) {
     console.error('[REAL-LIFE NOTIF ERROR] Failed to create notification:', error);

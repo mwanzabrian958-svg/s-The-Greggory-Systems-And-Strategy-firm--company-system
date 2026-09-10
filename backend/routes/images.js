@@ -4,12 +4,7 @@ const db = require('../config/database');
 const requireAdmin = require('../middleware/auth');
 
 // Helper: insert image from base64 string into images.data
-const insertImageFromBase64 = (
-  fileName,
-  contentType,
-  dataBase64,
-  callback
-) => {
+const insertImageFromBase64 = (fileName, contentType, dataBase64, callback) => {
   if (!dataBase64) return callback(new Error('Missing image data'));
 
   let buffer;
@@ -26,16 +21,11 @@ const insertImageFromBase64 = (
 
   db.query(
     query,
-    [
-      fileName || 'profile.jpg',
-      contentType || 'image/jpeg',
-      buffer,
-      buffer.length
-    ],
+    [fileName || 'profile.jpg', contentType || 'image/jpeg', buffer, buffer.length],
     (err, result) => {
       if (err) return callback(err);
       callback(null, result.insertId);
-    }
+    },
   );
 };
 
@@ -59,7 +49,7 @@ router.post('/profile', (req, res) => {
       }
 
       res.status(201).json({ image_id: imageId });
-    }
+    },
   );
 });
 

@@ -17,10 +17,10 @@ function formatActivityLog(row) {
     target: row.affected_table,
     targetId: row.affected_record_id,
     createdAt: row.created_at,
-    status
+    status,
   };
 }
 
 module.exports = {
-  formatActivityLog
+  formatActivityLog,
 };

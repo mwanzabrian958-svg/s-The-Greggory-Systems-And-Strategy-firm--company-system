@@ -18,7 +18,7 @@ const API_ENDPOINTS = {
     REGISTER: '/api/users/test-register',
     ADMIN_AUTH: '/api/admin/authenticate',
     LOGOUT: '/api/users/logout',
-    REFRESH_TOKEN: '/api/users/refresh-token'
+    REFRESH_TOKEN: '/api/users/refresh-token',
   },
 
   // User Management Endpoints
@@ -30,7 +30,7 @@ const API_ENDPOINTS = {
     DELETE: '/api/users/:id',
     GET_PROFILE: '/api/users/profile/:id',
     UPDATE_PROFILE: '/api/users/profile/:id',
-    UPLOAD_PHOTO: '/api/users/profile-photo/:id'
+    UPLOAD_PHOTO: '/api/users/profile-photo/:id',
   },
 
   // Admin Management Endpoints
@@ -42,7 +42,7 @@ const API_ENDPOINTS = {
     CREATE_DEVELOPER: '/api/admin/create-developer',
     UPDATE_PERMISSIONS: '/api/admin/permissions/:id',
     ACTIVITY_LOG: '/api/admin/activity-log',
-    SECURITY_SETTINGS: '/api/admin/security'
+    SECURITY_SETTINGS: '/api/admin/security',
   },
 
   // Project Management Endpoints
@@ -57,7 +57,7 @@ const API_ENDPOINTS = {
     REMOVE_MEMBER: '/api/projects/:id/members/:memberId',
     GET_PHOTOS: '/api/projects/:id/photos',
     UPLOAD_PHOTO: '/api/projects/:id/photos',
-    DELETE_PHOTO: '/api/projects/photos/:photoId'
+    DELETE_PHOTO: '/api/projects/photos/:photoId',
   },
 
   // Financial Management Endpoints
@@ -72,7 +72,7 @@ const API_ENDPOINTS = {
     QUOTE_TO_INVOICE: '/api/financial/quotes/:id/convert',
     PAYMENT_PROCESS: '/api/financial/payments',
     MPESA_PAYMENT: '/api/financial/mpesa',
-    CURRENCY_CONVERT: '/api/financial/currency-convert'
+    CURRENCY_CONVERT: '/api/financial/currency-convert',
   },
 
   // Document Management Endpoints
@@ -83,7 +83,7 @@ const API_ENDPOINTS = {
     DOWNLOAD: '/api/documents/:id/download',
     DELETE: '/api/documents/:id',
     GENERATE_PDF: '/api/documents/:id/pdf',
-    SHARE_DOCUMENT: '/api/documents/:id/share'
+    SHARE_DOCUMENT: '/api/documents/:id/share',
   },
 
   // Reports Endpoints
@@ -92,7 +92,7 @@ const API_ENDPOINTS = {
     GET_PROJECT: '/api/reports/project/:projectId',
     GET_USER_ACTIVITY: '/api/reports/user/:userId',
     GENERATE_REPORT: '/api/reports/generate',
-    EXPORT_REPORT: '/api/reports/:id/export'
+    EXPORT_REPORT: '/api/reports/:id/export',
   },
 
   // System Endpoints
@@ -101,8 +101,8 @@ const API_ENDPOINTS = {
     CONFIGURATION: '/api/system/config',
     BACKUP: '/api/system/backup',
     RESTORE: '/api/system/restore',
-    LOGS: '/api/system/logs'
-  }
+    LOGS: '/api/system/logs',
+  },
 };
 
 // =============================================
@@ -112,9 +112,9 @@ const API_ENDPOINTS = {
 const validateEndpoint = (req, res, next) => {
   const endpoint = req.originalUrl;
   const method = req.method;
-  
+
   console.log(`[${new Date().toISOString()}] ${method} ${endpoint}`);
-  
+
   // Log endpoint access for debugging
   const logEntry = {
     timestamp: new Date().toISOString(),
@@ -122,15 +122,17 @@ const validateEndpoint = (req, res, next) => {
     endpoint: endpoint,
     ip: req.ip,
     userAgent: req.get('User-Agent'),
-    userId: req.user?.id || 'anonymous'
+    userId: req.user?.id || 'anonymous',
   };
-  
+
   // Store endpoint access log
-  db.promise().query(
-    'INSERT INTO api_access_logs (endpoint, method, ip_address, user_agent, user_id, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-    [endpoint, method, req.ip, req.get('User-Agent'), req.user?.id || null, logEntry.timestamp]
-  ).catch(err => console.error('Failed to log API access:', err));
-  
+  db.promise()
+    .query(
+      'INSERT INTO api_access_logs (endpoint, method, ip_address, user_agent, user_id, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+      [endpoint, method, req.ip, req.get('User-Agent'), req.user?.id || null, logEntry.timestamp],
+    )
+    .catch((err) => console.error('Failed to log API access:', err));
+
   next();
 };
 
@@ -141,35 +143,37 @@ const validateEndpoint = (req, res, next) => {
 router.get('/api/status', validateEndpoint, async (req, res) => {
   try {
     const endpointStatus = {};
-    
+
     // Check each endpoint category
     for (const [category, endpoints] of Object.entries(API_ENDPOINTS)) {
       endpointStatus[category] = {};
-      
+
       for (const [name, path] of Object.entries(endpoints)) {
         // Simulate endpoint health check
         const isHealthy = await checkEndpointHealth(path);
         endpointStatus[category][name] = {
           path: path,
           status: isHealthy ? 'healthy' : 'unhealthy',
-          lastChecked: new Date().toISOString()
+          lastChecked: new Date().toISOString(),
         };
       }
     }
-    
+
     res.json({
       status: 'success',
       timestamp: new Date().toISOString(),
       endpoints: endpointStatus,
-      totalEndpoints: Object.values(API_ENDPOINTS).reduce((acc, cat) => acc + Object.keys(cat).length, 0)
+      totalEndpoints: Object.values(API_ENDPOINTS).reduce(
+        (acc, cat) => acc + Object.keys(cat).length,
+        0,
+      ),
     });
-    
   } catch (error) {
     console.error('Endpoint status check failed:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to check endpoint status',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -185,14 +189,14 @@ const FRONTEND_ROUTES = {
   '/signup': 'POST /api/users/test-register',
   '/forgot-password': 'POST /api/users/forgot-password',
   '/reset-password': 'POST /api/users/reset-password',
-  
+
   // Authenticated User Routes
   '/dashboard': 'GET /api/users/profile/:userId',
   '/projects': 'GET /api/projects/user/:userId',
   '/projects/:id': 'GET /api/projects/:id',
   '/profile': 'GET /api/users/profile/:userId',
   '/settings': 'GET /api/users/settings/:userId',
-  
+
   // Admin Routes
   '/admin': 'GET /api/admin/dashboard',
   '/admin/dashboard': 'GET /api/admin/dashboard',
@@ -201,9 +205,9 @@ const FRONTEND_ROUTES = {
   '/admin/financial': 'GET /api/admin/financial',
   '/admin/reports': 'GET /api/admin/reports',
   '/admin/settings': 'GET /api/admin/settings',
-  
+
   // API Routes
-  '/api/*': 'Direct API access'
+  '/api/*': 'Direct API access',
 };
 
 // =============================================
@@ -228,29 +232,29 @@ async function checkEndpointHealth(endpointPath) {
 // =============================================
 router.get('/api/routes/validate', validateEndpoint, (req, res) => {
   const { route } = req.query;
-  
+
   if (!route) {
     return res.status(400).json({
       error: 'Route parameter required',
-      availableRoutes: Object.keys(FRONTEND_ROUTES)
+      availableRoutes: Object.keys(FRONTEND_ROUTES),
     });
   }
-  
+
   const backendEndpoint = FRONTEND_ROUTES[route];
-  
+
   if (!backendEndpoint) {
     return res.status(404).json({
       error: 'Route not found',
       route: route,
-      availableRoutes: Object.keys(FRONTEND_ROUTES)
+      availableRoutes: Object.keys(FRONTEND_ROUTES),
     });
   }
-  
+
   res.json({
     route: route,
     linkedTo: backendEndpoint,
     status: 'linked',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -262,36 +266,35 @@ router.get('/api/routes/missing', validateEndpoint, async (req, res) => {
   try {
     // Get all registered routes from Express app
     const registeredRoutes = [];
-    
+
     // This would normally check the actual Express app routes
     // For demonstration, we'll show the expected vs actual
-    
+
     const expectedEndpoints = Object.values(API_ENDPOINTS).flat();
     const missingEndpoints = [];
-    
+
     res.json({
       status: 'success',
       analysis: {
         expectedEndpoints: expectedEndpoints.length,
         registeredEndpoints: registeredRoutes.length,
         missingEndpoints: missingEndpoints,
-        linkageComplete: missingEndpoints.length === 0
+        linkageComplete: missingEndpoints.length === 0,
       },
-      recommendations: missingEndpoints.length > 0 ? [
-        'Implement missing backend endpoints',
-        'Update frontend API calls',
-        'Verify route registration order'
-      ] : [
-        'All endpoints properly linked',
-        'System ready for production'
-      ]
+      recommendations:
+        missingEndpoints.length > 0
+          ? [
+              'Implement missing backend endpoints',
+              'Update frontend API calls',
+              'Verify route registration order',
+            ]
+          : ['All endpoints properly linked', 'System ready for production'],
     });
-    
   } catch (error) {
     console.error('Missing endpoints detection failed:', error);
     res.status(500).json({
       error: 'Failed to analyze endpoint linkage',
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -306,13 +309,13 @@ router.get('/api/docs', validateEndpoint, (req, res) => {
     version: '1.0.0',
     generated: new Date().toISOString(),
     baseUrl: process.env.BASE_URL || 'http://localhost:3001',
-    endpoints: {}
+    endpoints: {},
   };
-  
+
   // Generate documentation for each endpoint category
   for (const [category, endpoints] of Object.entries(API_ENDPOINTS)) {
     documentation.endpoints[category] = {};
-    
+
     for (const [name, path] of Object.entries(endpoints)) {
       documentation.endpoints[category][name] = {
         path: path,
@@ -320,11 +323,11 @@ router.get('/api/docs', validateEndpoint, (req, res) => {
         description: getEndpointDescription(name, category),
         parameters: getEndpointParameters(name, category),
         responses: getEndpointResponses(name, category),
-        authentication: getEndpointAuth(name, category)
+        authentication: getEndpointAuth(name, category),
       };
     }
   }
-  
+
   res.json(documentation);
 });
 
@@ -348,7 +351,7 @@ function getEndpointDescription(name, category) {
       REGISTER: 'New user registration',
       ADMIN_AUTH: 'Admin authentication with admin code',
       LOGOUT: 'User session termination',
-      REFRESH_TOKEN: 'JWT token refresh'
+      REFRESH_TOKEN: 'JWT token refresh',
     },
     USERS: {
       GET_ALL: 'Retrieve all users',
@@ -358,7 +361,7 @@ function getEndpointDescription(name, category) {
       DELETE: 'Delete user account',
       GET_PROFILE: 'Get user profile with photo',
       UPDATE_PROFILE: 'Update user profile',
-      UPLOAD_PHOTO: 'Upload user profile photo'
+      UPLOAD_PHOTO: 'Upload user profile photo',
     },
     PROJECTS: {
       GET_ALL: 'Retrieve all projects',
@@ -371,7 +374,7 @@ function getEndpointDescription(name, category) {
       REMOVE_MEMBER: 'Remove team member from project',
       GET_PHOTOS: 'Get project photos',
       UPLOAD_PHOTO: 'Upload project photo',
-      DELETE_PHOTO: 'Delete project photo'
+      DELETE_PHOTO: 'Delete project photo',
     },
     FINANCIAL: {
       GET_ACCOUNTING: 'Get accounting records',
@@ -384,7 +387,7 @@ function getEndpointDescription(name, category) {
       QUOTE_TO_INVOICE: 'Convert quote to invoice',
       PAYMENT_PROCESS: 'Process payment',
       MPESA_PAYMENT: 'Process M-Pesa payment',
-      CURRENCY_CONVERT: 'Convert currency amounts'
+      CURRENCY_CONVERT: 'Convert currency amounts',
     },
     DOCUMENTS: {
       GET_ALL: 'Get all documents',
@@ -393,24 +396,24 @@ function getEndpointDescription(name, category) {
       DOWNLOAD: 'Download document',
       DELETE: 'Delete document',
       GENERATE_PDF: 'Generate PDF from document',
-      SHARE_DOCUMENT: 'Share document via email/link'
+      SHARE_DOCUMENT: 'Share document via email/link',
     },
     REPORTS: {
       GET_FINANCIAL: 'Get financial reports',
       GET_PROJECT: 'Get project reports',
       GET_USER_ACTIVITY: 'Get user activity reports',
       GENERATE_REPORT: 'Generate custom report',
-      EXPORT_REPORT: 'Export report in various formats'
+      EXPORT_REPORT: 'Export report in various formats',
     },
     SYSTEM: {
       HEALTH_CHECK: 'System health status',
       CONFIGURATION: 'System configuration',
       BACKUP: 'System backup',
       RESTORE: 'System restore',
-      LOGS: 'System logs'
-    }
+      LOGS: 'System logs',
+    },
   };
-  
+
   return descriptions[category]?.[name] || 'Endpoint description not available';
 }
 
@@ -418,7 +421,7 @@ function getEndpointParameters(name, category) {
   // Return parameter definitions for each endpoint
   return {
     type: 'object',
-    properties: getParameterSchema(name, category)
+    properties: getParameterSchema(name, category),
   };
 }
 
@@ -430,14 +433,14 @@ function getEndpointResponses(name, category) {
     401: { description: 'Unauthorized' },
     403: { description: 'Forbidden' },
     404: { description: 'Not Found' },
-    500: { description: 'Internal Server Error' }
+    500: { description: 'Internal Server Error' },
   };
 }
 
 function getEndpointAuth(name, category) {
   const authRequired = ['USERS', 'ADMIN', 'PROJECTS', 'FINANCIAL', 'DOCUMENTS', 'REPORTS'];
   const publicEndpoints = ['AUTH', 'SYSTEM'];
-  
+
   if (publicEndpoints.includes(category)) {
     return 'none';
   } else if (authRequired.includes(category)) {
@@ -463,5 +466,5 @@ module.exports = {
   API_ENDPOINTS,
   FRONTEND_ROUTES,
   validateEndpoint,
-  checkEndpointHealth
+  checkEndpointHealth,
 };

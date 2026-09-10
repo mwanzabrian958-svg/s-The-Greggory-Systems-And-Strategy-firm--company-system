@@ -62,16 +62,21 @@ function portOpen(port) {
 
   log('browser', 'waiting 8s for servers to start...');
   setTimeout(function () {
-    log('browser', 'opening tabs...');
+    log('browser', 'opening tabs (mainframe stack)...');
     var tabs = [
-      'http://127.0.0.1:' + PORTS.frontend,
-      'http://127.0.0.1:' + PORTS.backend + '/api/health',
-      'http://127.0.0.1/phpmyadmin',
+      'http://127.0.0.1:' + PORTS.frontend,                            // Home / Landing
+      'http://127.0.0.1:' + PORTS.frontend + '/dashboard',            // Home (Web Master + 13 dept tiles)
+      'http://127.0.0.1:' + PORTS.backend + '/api/health',            // Health check node
+      'http://127.0.0.1:' + PORTS.backend + '/api/network',           // Mainframe network status
+      'http://127.0.0.1:' + PORTS.backend + '/api/employees',         // Employee workstation nodes
+      'http://127.0.0.1:' + PORTS.backend + '/api/departments',       // Departments
+      'http://127.0.0.1:' + PORTS.backend + '/api/roles',             // Roles
+      'http://127.0.0.1/phpmyadmin',                                  // Local DB node
     ];
     tabs.forEach(function (u) {
       try { execSync('start "" "' + u + '"', { stdio: 'ignore' }); log('browser', u); } catch (e) {}
     });
-    console.log('\n[done] Windows opened for backend, frontend, and browser.');
+    console.log('\n[done] Virtual mainframe stack opened (frontend, home, + all API nodes).');
     console.log('[done] Close the backend/frontend command windows to stop the servers.\n');
   }, 8000);
 })();

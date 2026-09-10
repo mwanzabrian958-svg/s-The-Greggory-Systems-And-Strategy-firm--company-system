@@ -5,18 +5,22 @@
   "type": "module",
   "main": "main.js",
   "scripts": {
-    "dev": "node scripts/start-dev.cjs",
-    "dev:old": "concurrently \"npm run backend\" \"vite\"",
-    "predev": "node scripts/clear-ports.cjs",
+    "dev": "node scripts/dev-start.cjs",
     "vite": "vite",
-    "ports:clear": "node scripts/clear-ports.cjs",
-    "predesktop": "node scripts/clear-ports.cjs",
     "backend": "node server.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "electron": "electron .",
     "desktop": "cross-env NODE_ENV=development concurrently \"npm run backend\" \"vite\" \"wait-on http://127.0.0.1:5173 && electron .\"",
-    "start": "npm run desktop"
+    "start": "npm run desktop",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src backend --ext .ts,.tsx,.js --report-unused-disable-directives",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"backend/**/*.js\"",
+    "migrate": "node backend/migrate.js",
+    "migrate:status": "node backend/migrate.js --status",
+    "prepare": "husky"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
@@ -29,6 +33,8 @@
     "daisyui": "^4.12.24",
     "dompurify": "^3.4.14",
     "dotenv": "^17.4.2",
+    "electron-log": "^5.4.4",
+    "electron-updater": "^6.8.9",
     "express": "^5.2.1",
     "framer-motion": "^10.12.16",
     "helmet": "^7.2.0",
@@ -40,21 +46,47 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.16.0",
     "recharts": "^3.10.1",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
     "tailwind-merge": "^1.14.0",
-    "uuid": "^14.0.2"
+    "uuid": "^14.0.2",
+    "zod": "^4.6.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "@vitejs/plugin-react": "^4.0.3",
     "autoprefixer": "^10.4.14",
     "concurrently": "^8.2.0",
     "cross-env": "^10.1.0",
     "electron": "^25.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.34.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "express-rate-limit": "^7.5.1",
+    "google-auth-library": "^11.0.2",
+    "husky": "^9.0.0",
+    "jsdom": "^30.0.1",
+    "lint-staged": "^15.0.0",
+    "multer": "^1.4.5-lts.2",
     "postcss": "^8.4.27",
+    "prettier": "^3.2.0",
+    "supertest": "^7.0.0",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.0.2",
     "vite": "^4.4.5",
+    "vitest": "^2.1.9",
     "wait-on": "^7.0.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

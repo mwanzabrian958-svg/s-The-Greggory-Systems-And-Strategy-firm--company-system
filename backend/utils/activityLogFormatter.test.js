@@ -10,7 +10,7 @@ test('formats relay activity rows into a readable admin activity feed', () => {
     affected_table: 'users',
     affected_record_id: 7,
     created_at: '2026-08-02T10:00:00.000Z',
-    admin_display_name: 'Amaka K.'
+    admin_display_name: 'Amaka K.',
   };
 
   const formatted = formatActivityLog(row);

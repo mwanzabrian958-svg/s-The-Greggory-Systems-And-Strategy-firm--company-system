@@ -41,10 +41,7 @@ function signSessionToken(userId, role) {
   if (role) payload.role = role;
 
   const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
-  const sig = crypto
-    .createHmac('sha256', getSessionSecret())
-    .update(body)
-    .digest('base64url');
+  const sig = crypto.createHmac('sha256', getSessionSecret()).update(body).digest('base64url');
   return `${body}.${sig}`;
 }
 
@@ -62,10 +59,7 @@ function verifySessionToken(token) {
   const sig = token.slice(dot + 1);
   if (!body || !sig) return null;
 
-  const expected = crypto
-    .createHmac('sha256', getSessionSecret())
-    .update(body)
-    .digest('base64url');
+  const expected = crypto.createHmac('sha256', getSessionSecret()).update(body).digest('base64url');
 
   const sigBuf = Buffer.from(sig, 'utf8');
   const expBuf = Buffer.from(expected, 'utf8');

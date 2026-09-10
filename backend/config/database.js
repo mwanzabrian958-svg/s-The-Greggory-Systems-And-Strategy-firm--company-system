@@ -14,8 +14,8 @@ const { endpoints, clean, DB_NAME } = require('../../server/config/dbEndpoints')
 //   - db.end(cb)  (cluster-level close)
 // ============================================================================
 const cluster = mysql.createPoolCluster({
-  canRetry: true,           // retry on the next available node
-  removeNodeErrorCount: 1,  // take a node out of rotation after 1 failed conn
+  canRetry: true, // retry on the next available node
+  removeNodeErrorCount: 1, // take a node out of rotation after 1 failed conn
   restoreNodeTimeout: 5000, // ...and try it again after 5s
   defaultSelector: 'ORDER', // always prefer endpoint #1 (local), then #2 (claude)
 });
@@ -33,11 +33,9 @@ endpoints().forEach((cfg, i) => {
   });
 });
 
-cluster.on('warn', (err) =>
-  console.warn(`[DB CLUSTER] warn: ${err.code || err.message}`)
-);
+cluster.on('warn', (err) => console.warn(`[DB CLUSTER] warn: ${err.code || err.message}`));
 cluster.on('offline', (id) =>
-  console.error(`[DB CLUSTER] ${id} offline — failing over to the other port`)
+  console.error(`[DB CLUSTER] ${id} offline — failing over to the other port`),
 );
 cluster.on('remove', (id) => console.error(`[DB CLUSTER] ${id} removed`));
 
@@ -50,21 +48,19 @@ db.promise = function promiseFacade() {
   return {
     query(sql, values) {
       return new Promise((resolve, reject) =>
-        ns.query(sql, values, (err, rows, fields) =>
-          err ? reject(err) : resolve([rows, fields])
-        )
+        ns.query(sql, values, (err, rows, fields) => (err ? reject(err) : resolve([rows, fields]))),
       );
     },
     execute(sql, values) {
       return new Promise((resolve, reject) =>
         ns.execute(sql, values, (err, rows, fields) =>
-          err ? reject(err) : resolve([rows, fields])
-        )
+          err ? reject(err) : resolve([rows, fields]),
+        ),
       );
     },
     getConnection() {
       return new Promise((resolve, reject) =>
-        ns.getConnection((err, conn) => (err ? reject(err) : resolve(conn)))
+        ns.getConnection((err, conn) => (err ? reject(err) : resolve(conn))),
       );
     },
   };

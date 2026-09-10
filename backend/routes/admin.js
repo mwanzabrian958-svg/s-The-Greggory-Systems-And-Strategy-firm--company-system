@@ -36,20 +36,23 @@ router.get('/profile-lookup', async (req, res) => {
     if (!email) return res.status(400).json({ success: false });
 
     // Check admin_users table for this email and return photo if exists
-    const [users] = await db.promise().query(`
+    const [users] = await db.promise().query(
+      `
       SELECT i.data as profile_photo_blob, i.content_type as profile_photo_type
       FROM admin_users au
       LEFT JOIN images i ON au.profile_image_id = i.id
       WHERE au.email = ? AND au.deleted_at IS NULL
       LIMIT 1
-    `, [email]);
+    `,
+      [email],
+    );
 
     if (users.length > 0 && users[0].profile_photo_blob) {
       const base64 = Buffer.from(users[0].profile_photo_blob).toString('base64');
       const mimeType = users[0].profile_photo_type || 'image/jpeg';
       return res.json({
         success: true,
-        photoData: `data:${mimeType};base64,${base64}`
+        photoData: `data:${mimeType};base64,${base64}`,
       });
     }
 
@@ -86,11 +89,11 @@ router.get('/live-users', requireAdminSession, async (req, res) => {
     res.json({
       success: true,
       count: liveUsers.length,
-      users: liveUsers.map(u => ({
+      users: liveUsers.map((u) => ({
         ...u,
         online: true,
-        last_active: u.last_active_at
-      }))
+        last_active: u.last_active_at,
+      })),
     });
   } catch (error) {
     console.error('Error fetching live users:', error);
@@ -135,20 +138,24 @@ router.get('/search', async (req, res) => {
     const [projects] = await db.promise().query(projectQuery, [searchTerm, searchTerm, limit]);
 
     // 3. Search Ledger
-    const [ledger] = await db.promise().query(
-      "SELECT 'ledger' as type, id, description as title, CONCAT('KSH ', FORMAT(amount, 2)) as subtitle, '/admin/billing' as link FROM accounting_entries WHERE (description LIKE ? OR transaction_reference LIKE ?) AND deleted_at IS NULL LIMIT ?",
-      [searchTerm, searchTerm, limit]
-    );
+    const [ledger] = await db
+      .promise()
+      .query(
+        "SELECT 'ledger' as type, id, description as title, CONCAT('KSH ', FORMAT(amount, 2)) as subtitle, '/admin/billing' as link FROM accounting_entries WHERE (description LIKE ? OR transaction_reference LIKE ?) AND deleted_at IS NULL LIMIT ?",
+        [searchTerm, searchTerm, limit],
+      );
 
     // 4. Search Tasks
-    const [tasks] = await db.promise().query(
-      "SELECT 'task' as type, id, task_name as title, task_description as description, status, priority as metadata, CONCAT('/admin/projects/', project_id, '/tasks') as link FROM project_tasks WHERE (task_name LIKE ? OR task_description LIKE ?) AND deleted_at IS NULL LIMIT ?",
-      [searchTerm, searchTerm, limit]
-    );
+    const [tasks] = await db
+      .promise()
+      .query(
+        "SELECT 'task' as type, id, task_name as title, task_description as description, status, priority as metadata, CONCAT('/admin/projects/', project_id, '/tasks') as link FROM project_tasks WHERE (task_name LIKE ? OR task_description LIKE ?) AND deleted_at IS NULL LIMIT ?",
+        [searchTerm, searchTerm, limit],
+      );
 
     res.json({
       success: true,
-      results: [...users, ...projects, ...ledger, ...tasks]
+      results: [...users, ...projects, ...ledger, ...tasks],
     });
   } catch (error) {
     console.error('Global Search Error:', error);
@@ -196,15 +203,14 @@ router.get('/admin-users', requireAdminSession, async (req, res) => {
     res.json({
       success: true,
       users: adminUsers,
-      count: adminUsers.length
+      count: adminUsers.length,
     });
-
   } catch (error) {
     console.error('Error fetching admin users:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch admin users',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -250,15 +256,14 @@ router.get('/users', requireAdminSession, async (req, res) => {
     res.json({
       success: true,
       users: regularUsers,
-      count: regularUsers.length
+      count: regularUsers.length,
     });
-
   } catch (error) {
     console.error('Error fetching regular users:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch regular users',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -276,14 +281,14 @@ router.post('/create-admin', requireAdminSession, async (req, res) => {
       admin_level = 'admin',
       access_level = 'full',
       department = 'General',
-      admin_code
+      admin_code,
     } = req.body;
 
     // Basic validation
     if (!first_name || !last_name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields'
+        message: 'Please provide all required fields',
       });
     }
 
@@ -294,21 +299,20 @@ router.post('/create-admin', requireAdminSession, async (req, res) => {
       if (!expected || admin_code !== expected) {
         return res.status(403).json({
           success: false,
-          message: 'Invalid admin code for admin account creation'
+          message: 'Invalid admin code for admin account creation',
         });
       }
     }
 
     // Check if user already exists in admin table
-    const [existingAdmin] = await db.promise().query(
-      'SELECT id FROM admin_users WHERE email = ?',
-      [email]
-    );
+    const [existingAdmin] = await db
+      .promise()
+      .query('SELECT id FROM admin_users WHERE email = ?', [email]);
 
     if (existingAdmin.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Admin user with this email already exists'
+        message: 'Admin user with this email already exists',
       });
     }
 
@@ -316,30 +320,29 @@ router.post('/create-admin', requireAdminSession, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create admin user
-    const [result] = await db.promise().query(`
+    const [result] = await db.promise().query(
+      `
       INSERT INTO admin_users (
         email, password_hash, first_name, last_name, admin_level, 
         access_level, department, is_active, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    `, [
-      email, hashedPassword, first_name, last_name, admin_level,
-      access_level, department, 1
-    ]);
+    `,
+      [email, hashedPassword, first_name, last_name, admin_level, access_level, department, 1],
+    );
 
     res.status(201).json({
       success: true,
       message: 'Admin user created successfully',
       userId: result.insertId,
       admin_level: admin_level,
-      access_level: access_level
+      access_level: access_level,
     });
-
   } catch (error) {
     console.error('Error creating admin user:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create admin user',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -414,12 +417,14 @@ CONFIDENTIAL - INTERNAL USE ONLY
     `;
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="PROFILE_${name.replace(/\s+/g, '_')}.pdf"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="PROFILE_${name.replace(/\s+/g, '_')}.pdf"`,
+    );
 
     // For now, sending as a plain text buffer that opens in PDF viewers
     // In a real environment, we'd pipe through a PDF generator
     res.send(Buffer.from(profileText, 'utf-8'));
-
   } catch (error) {
     console.error('Export Error:', error);
     res.status(500).send('Export synchronization failed');
@@ -433,13 +438,28 @@ router.put('/users/:id', requireAdminSession, async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      first_name, last_name, email, role, admin_level, department,
-      mission_briefing, is_active, phone_number, physical_address,
-      id_number, alt_phone, expertise, private_notes, manual_projects,
-      emergency_contact_name, emergency_contact_phone
+      first_name,
+      last_name,
+      email,
+      role,
+      admin_level,
+      department,
+      mission_briefing,
+      is_active,
+      phone_number,
+      physical_address,
+      id_number,
+      alt_phone,
+      expertise,
+      private_notes,
+      manual_projects,
+      emergency_contact_name,
+      emergency_contact_phone,
     } = req.body;
 
-    const roleType = req.query.role_type || (role === 'admin' ? 'admin' : role === 'developer' ? 'developer' : 'client');
+    const roleType =
+      req.query.role_type ||
+      (role === 'admin' ? 'admin' : role === 'developer' ? 'developer' : 'client');
 
     let tableName;
     let updates = [];
@@ -450,23 +470,51 @@ router.put('/users/:id', requireAdminSession, async (req, res) => {
     // live in the shared update list and actually persist (previously admin edits
     // silently dropped mission_briefing,and client edits dropped department).
     const commonUpdates = [
-      'first_name = ?', 'last_name = ?', 'email = ?', 'phone_number = ?',
-      'physical_address = ?', 'id_number = ?', 'alt_phone = ?', 'expertise = ?',
-      'private_notes = ?', 'manual_projects = ?', 'emergency_contact_name = ?',
-      'emergency_contact_phone = ?', 'is_active = ?', 'department = ?', 'mission_briefing = ?'
+      'first_name = ?',
+      'last_name = ?',
+      'email = ?',
+      'phone_number = ?',
+      'physical_address = ?',
+      'id_number = ?',
+      'alt_phone = ?',
+      'expertise = ?',
+      'private_notes = ?',
+      'manual_projects = ?',
+      'emergency_contact_name = ?',
+      'emergency_contact_phone = ?',
+      'is_active = ?',
+      'department = ?',
+      'mission_briefing = ?',
     ];
 
     const commonParams = [
-      first_name, last_name, email, phone_number || null,
-      physical_address || null, id_number || null, alt_phone || null, expertise || null,
-      private_notes || null, manual_projects || null, emergency_contact_name || null,
-      emergency_contact_phone || null, is_active ? 1 : 0, department || null, mission_briefing || null
+      first_name,
+      last_name,
+      email,
+      phone_number || null,
+      physical_address || null,
+      id_number || null,
+      alt_phone || null,
+      expertise || null,
+      private_notes || null,
+      manual_projects || null,
+      emergency_contact_name || null,
+      emergency_contact_phone || null,
+      is_active ? 1 : 0,
+      department || null,
+      mission_briefing || null,
     ];
 
     const tableMap = {
-      admin: 'admin_users', admin_users: 'admin_users', 'admin-user': 'admin_users',
-      developer: 'developer_users', developer_users: 'developer_users', 'developer-user': 'developer_users',
-      client: 'users', user: 'users', users: 'users'
+      admin: 'admin_users',
+      admin_users: 'admin_users',
+      'admin-user': 'admin_users',
+      developer: 'developer_users',
+      developer_users: 'developer_users',
+      'developer-user': 'developer_users',
+      client: 'users',
+      user: 'users',
+      users: 'users',
     };
     tableName = tableMap[String(roleType.toLowerCase())] || 'users';
 
@@ -481,11 +529,13 @@ router.put('/users/:id', requireAdminSession, async (req, res) => {
       params = [...commonParams, role || 'user'];
     }
 
-        params.push(id);
-    const [result] = await db.promise().query(
-      `UPDATE ${tableName} SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
-      params
-    );
+    params.push(id);
+    const [result] = await db
+      .promise()
+      .query(
+        `UPDATE ${tableName} SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+        params,
+      );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -494,12 +544,13 @@ router.put('/users/:id', requireAdminSession, async (req, res) => {
     res.json({
       success: true,
       message: 'User details synchronized successfully',
-      table: tableName
+      table: tableName,
     });
-
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(500).json({ success: false, message: 'Internal update failure', error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: 'Internal update failure', error: error.message });
   }
 });
 
@@ -514,7 +565,7 @@ router.put('/users/:id/status', async (req, res) => {
     if (!status || !role_type) {
       return res.status(400).json({
         success: false,
-        message: 'Status and role_type are required'
+        message: 'Status and role_type are required',
       });
     }
 
@@ -527,15 +578,17 @@ router.put('/users/:id/status', async (req, res) => {
       tableName = 'users';
     }
 
-    const [result] = await db.promise().query(
-      `UPDATE ${tableName} SET is_active = ?, updated_at = NOW() WHERE id = ?`,
-      [status === 'active' ? 1 : 0, id]
-    );
+    const [result] = await db
+      .promise()
+      .query(`UPDATE ${tableName} SET is_active = ?, updated_at = NOW() WHERE id = ?`, [
+        status === 'active' ? 1 : 0,
+        id,
+      ]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
@@ -543,15 +596,14 @@ router.put('/users/:id/status', async (req, res) => {
       success: true,
       message: `User status updated to ${status}`,
       userId: id,
-      role_type: role_type
+      role_type: role_type,
     });
-
   } catch (error) {
     console.error('Error updating user status:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update user status',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -567,7 +619,7 @@ router.delete('/users/:id', requireAdminSession, async (req, res) => {
     if (!role_type) {
       return res.status(400).json({
         success: false,
-        message: 'Role type parameter is required'
+        message: 'Role type parameter is required',
       });
     }
 
@@ -576,38 +628,48 @@ router.delete('/users/:id', requireAdminSession, async (req, res) => {
     // Developer accounts are purged from this project — only `users` and
     // `admin_users` are active identity tables.
     const tableMap = {
-      admin: 'admin_users', admin_users: 'admin_users', 'admin-user': 'admin_users',
-      client: 'users', user: 'users', users: 'users',
-      developer: 'developer_users', developer_users: 'developer_users', 'developer-user': 'developer_users'
+      admin: 'admin_users',
+      admin_users: 'admin_users',
+      'admin-user': 'admin_users',
+      client: 'users',
+      user: 'users',
+      users: 'users',
+      developer: 'developer_users',
+      developer_users: 'developer_users',
+      'developer-user': 'developer_users',
     };
     const tableName = tableMap[String(role_type).toLowerCase()] || 'users';
 
     // Grab the target row first (for the audit trail + existence check), then
     // soft-delete it so the change is actually applied in the database.
-    const [targets] = await db.promise().query(
-      `SELECT id, display_name, email FROM ${tableName} WHERE id = ? AND deleted_at IS NULL`,
-      [id]
-    );
+    const [targets] = await db
+      .promise()
+      .query(
+        `SELECT id, display_name, email FROM ${tableName} WHERE id = ? AND deleted_at IS NULL`,
+        [id],
+      );
 
     if (targets.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'User not found in the requested identity table'
+        message: 'User not found in the requested identity table',
       });
     }
     const target = targets[0];
 
     // Soft delete by setting deleted_at, disabling the account, and recording
     // who performed the termination.
-    const [result] = await db.promise().query(
-      `UPDATE ${tableName} SET deleted_at = NOW(), is_active = 0, deleted_by = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
-      [req.adminId || null, id]
-    );
+    const [result] = await db
+      .promise()
+      .query(
+        `UPDATE ${tableName} SET deleted_at = NOW(), is_active = 0, deleted_by = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+        [req.adminId || null, id],
+      );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
@@ -622,8 +684,8 @@ router.delete('/users/:id', requireAdminSession, async (req, res) => {
           `Soft-deleted ${tableName.slice(0, -6)} account "${target.display_name || target.email || target.id}" (id: ${id})`,
           tableName,
           id,
-          JSON.stringify({ deleted_at: new Date().toISOString(), is_active: 0 })
-        ]
+          JSON.stringify({ deleted_at: new Date().toISOString(), is_active: 0 }),
+        ],
       );
     } catch (logError) {
       console.warn('[ADMIN] Could not write USER_DELETED activity log:', logError.message);
@@ -634,15 +696,14 @@ router.delete('/users/:id', requireAdminSession, async (req, res) => {
       message: 'User deleted successfully',
       userId: id,
       role_type: role_type,
-      table: tableName
+      table: tableName,
     });
-
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete user',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -658,13 +719,17 @@ router.get('/users/:id', requireAdminSession, async (req, res) => {
     if (!role_type) {
       return res.status(400).json({
         success: false,
-        message: 'Role type parameter is required'
+        message: 'Role type parameter is required',
       });
     }
 
     const tableMap = {
-      admin: 'admin_users', admin_users: 'admin_users', 'admin-user': 'admin_users',
-      client: 'users', user: 'users', users: 'users'
+      admin: 'admin_users',
+      admin_users: 'admin_users',
+      'admin-user': 'admin_users',
+      client: 'users',
+      user: 'users',
+      users: 'users',
     };
     const tableName = tableMap[String(role_type).toLowerCase()] || 'users';
 
@@ -716,22 +781,21 @@ router.get('/users/:id', requireAdminSession, async (req, res) => {
     if (users.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
     res.json({
       success: true,
       user: users[0],
-      role_type: role_type
+      role_type: role_type,
     });
-
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch user',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -763,7 +827,9 @@ router.get('/activity-logs', async (req, res) => {
     const activities = activityRows.map((row) => {
       const formatted = formatActivityLog(row);
       const actorName = [row.display_name, row.first_name, row.last_name].find(Boolean) || 'System';
-      const activityLabel = formatted.type ? formatted.type.replace(/_/g, ' ').toLowerCase() : 'activity';
+      const activityLabel = formatted.type
+        ? formatted.type.replace(/_/g, ' ').toLowerCase()
+        : 'activity';
 
       return {
         id: formatted.id,
@@ -776,7 +842,7 @@ router.get('/activity-logs', async (req, res) => {
         success: true,
         status: formatted.status,
         type: activityLabel,
-        ...formatted
+        ...formatted,
       };
     });
 
@@ -786,7 +852,7 @@ router.get('/activity-logs', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch activity logs',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -797,13 +863,15 @@ router.get('/activity-logs', async (req, res) => {
 router.get('/dashboard', async (req, res) => {
   try {
     // Get counts from necessary tables - PURGED DEVELOPERS
-    const [adminCount] = await db.promise().query(
-      'SELECT COUNT(*) as count FROM admin_users WHERE is_active = 1 AND deleted_at IS NULL'
-    );
-    
-    const [userCount] = await db.promise().query(
-      'SELECT COUNT(*) as count FROM users WHERE is_active = 1 AND deleted_at IS NULL'
-    );
+    const [adminCount] = await db
+      .promise()
+      .query(
+        'SELECT COUNT(*) as count FROM admin_users WHERE is_active = 1 AND deleted_at IS NULL',
+      );
+
+    const [userCount] = await db
+      .promise()
+      .query('SELECT COUNT(*) as count FROM users WHERE is_active = 1 AND deleted_at IS NULL');
 
     const [verifiedCount] = await db.promise().query(`
       SELECT
@@ -811,13 +879,17 @@ router.get('/dashboard', async (req, res) => {
         (SELECT COUNT(*) FROM admin_users WHERE whatsapp_verified = 1 AND deleted_at IS NULL) as count
     `);
 
-    const [activeProjectsCount] = await db.promise().query(
-      "SELECT COUNT(*) as count FROM user_projects WHERE status IN ('in-progress', 'active') AND deleted_at IS NULL"
-    );
+    const [activeProjectsCount] = await db
+      .promise()
+      .query(
+        "SELECT COUNT(*) as count FROM user_projects WHERE status IN ('in-progress', 'active') AND deleted_at IS NULL",
+      );
 
-    const [pendingApprovalsCount] = await db.promise().query(
-      "SELECT COUNT(*) as count FROM user_projects WHERE status IN ('planning', 'pending') AND deleted_at IS NULL"
-    );
+    const [pendingApprovalsCount] = await db
+      .promise()
+      .query(
+        "SELECT COUNT(*) as count FROM user_projects WHERE status IN ('planning', 'pending') AND deleted_at IS NULL",
+      );
 
     const [liveUsersCount] = await db.promise().query(`
       SELECT
@@ -869,16 +941,18 @@ router.get('/dashboard', async (req, res) => {
         ...activity,
         action: activity.description || 'Activity',
         timestamp: activity.timestamp || new Date().toISOString(),
-        source: 'system'
+        source: 'system',
       })),
       ...relayActivity.map((activity) => ({
         id: `relay-${activity.created_at}`,
         action: `${activity.action_type.replace(/_/g, ' ')} · ${activity.action_description}`,
         timestamp: activity.created_at,
         source: 'relay',
-        status: activity.action_description?.toLowerCase().includes('queued') ? 'queued' : 'sent'
-      }))
-    ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 10);
+        status: activity.action_description?.toLowerCase().includes('queued') ? 'queued' : 'sent',
+      })),
+    ]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 10);
 
     res.json({
       success: true,
@@ -889,20 +963,19 @@ router.get('/dashboard', async (req, res) => {
           verified: verifiedCount[0].count,
           live: liveUsersCount[0].count,
           total: adminCount[0].count + userCount[0].count,
-          total_active_projects: activeProjectsCount[0].count
+          total_active_projects: activeProjectsCount[0].count,
         },
         pending_count: pendingApprovalsCount[0].count,
         recentActivity: combinedActivity,
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     });
-
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch dashboard data',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -912,14 +985,40 @@ router.get('/dashboard', async (req, res) => {
 // =============================================
 router.get('/budget-overview', async (req, res) => {
   try {
-    const [pb] = await db.promise().query('SELECT COALESCE(SUM(actual_budget),0) as spent, COALESCE(SUM(estimated_budget),0) as planned FROM user_projects WHERE deleted_at IS NULL');
-    const [fn] = await db.promise().query("SELECT COALESCE(SUM(CASE WHEN entry_type IN ('income','invoice_payment') THEN amount ELSE 0 END),0) as revenue, COALESCE(SUM(CASE WHEN entry_type='expense' THEN amount ELSE 0 END),0) as expenses FROM accounting_entries WHERE deleted_at IS NULL AND payment_status='completed'");
-    const [ac] = await db.promise().query("SELECT COUNT(*) as count FROM user_projects WHERE status IN ('in-progress','active') AND deleted_at IS NULL");
+    const [pb] = await db
+      .promise()
+      .query(
+        'SELECT COALESCE(SUM(actual_budget),0) as spent, COALESCE(SUM(estimated_budget),0) as planned FROM user_projects WHERE deleted_at IS NULL',
+      );
+    const [fn] = await db
+      .promise()
+      .query(
+        "SELECT COALESCE(SUM(CASE WHEN entry_type IN ('income','invoice_payment') THEN amount ELSE 0 END),0) as revenue, COALESCE(SUM(CASE WHEN entry_type='expense' THEN amount ELSE 0 END),0) as expenses FROM accounting_entries WHERE deleted_at IS NULL AND payment_status='completed'",
+      );
+    const [ac] = await db
+      .promise()
+      .query(
+        "SELECT COUNT(*) as count FROM user_projects WHERE status IN ('in-progress','active') AND deleted_at IS NULL",
+      );
     const r = fn[0]?.revenue || 0;
     const e = fn[0]?.expenses || 0;
     const p = pb[0]?.planned || 0;
-    res.json({ success: true, data: { planned: p, spent: e, forecast: e > 0 ? e * 1.1 : 0, revenue: r, expenses: e, net_income: r - e, active_projects: ac[0]?.count || 0, remaining: Math.max(0, p - e) } });
-  } catch (error) { res.status(500).json({ success: false, message: 'Budget overview failed' }); }
+    res.json({
+      success: true,
+      data: {
+        planned: p,
+        spent: e,
+        forecast: e > 0 ? e * 1.1 : 0,
+        revenue: r,
+        expenses: e,
+        net_income: r - e,
+        active_projects: ac[0]?.count || 0,
+        remaining: Math.max(0, p - e),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Budget overview failed' });
+  }
 });
 
 // =============================================
@@ -943,20 +1042,20 @@ router.get('/pending-approvals', async (req, res) => {
 
     res.json({
       success: true,
-      data: approvals.map(a => ({
+      data: approvals.map((a) => ({
         id: a.id,
         type: a.type,
         name: a.name,
         priority: a.priority,
-        date: a.date
-      }))
+        date: a.date,
+      })),
     });
   } catch (error) {
     console.error('Error fetching pending approvals:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch pending approvals',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -981,19 +1080,19 @@ router.get('/pending-invoices', async (req, res) => {
 
     res.json({
       success: true,
-      data: invoices.map(inv => ({
+      data: invoices.map((inv) => ({
         id: inv.id,
         project: inv.project || 'Invoice',
         amount: inv.amount,
-        date: inv.date
-      }))
+        date: inv.date,
+      })),
     });
   } catch (error) {
     console.error('Error fetching pending invoices:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch pending invoices',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -1021,21 +1120,21 @@ router.get('/client-feedback', async (req, res) => {
 
     res.json({
       success: true,
-      data: feedback.map(f => ({
+      data: feedback.map((f) => ({
         id: f.id,
         type: f.type || 'Client',
         rating: f.rating,
         date: f.date,
         user: f.user_name || 'Anonymous',
-        title: f.title || 'Service Feedback'
-      }))
+        title: f.title || 'Service Feedback',
+      })),
     });
   } catch (error) {
     console.error('Error fetching client feedback:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch client feedback',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -1063,38 +1162,47 @@ router.get('/ledger', async (req, res) => {
     const params = [];
 
     if (client_id) {
-      query += " AND p.user_id = ?";
+      query += ' AND p.user_id = ?';
       params.push(client_id);
     }
 
     if (project_id) {
-      query += " AND ae.project_id = ?";
+      query += ' AND ae.project_id = ?';
       params.push(project_id);
     }
 
     if (team_member_id) {
-      query += " AND (ae.project_id IN (SELECT project_id FROM project_team_members WHERE user_id = ? AND removed_at IS NULL))";
+      query +=
+        ' AND (ae.project_id IN (SELECT project_id FROM project_team_members WHERE user_id = ? AND removed_at IS NULL))';
       params.push(team_member_id);
     }
 
     if (start_date && end_date) {
-      query += " AND ae.transaction_date BETWEEN ? AND ?";
+      query += ' AND ae.transaction_date BETWEEN ? AND ?';
       params.push(start_date, end_date);
     }
 
     if (type && type !== 'all') {
-      query += " AND ae.entry_type = ?";
+      query += ' AND ae.entry_type = ?';
       params.push(type);
     }
 
-    query += " ORDER BY ae.transaction_date DESC, ae.created_at DESC LIMIT 500";
+    query += ' ORDER BY ae.transaction_date DESC, ae.created_at DESC LIMIT 500';
 
     const [entries] = await db.promise().query(query, params);
 
     // Metadata for filters
-    const [clients] = await db.promise().query("SELECT id, display_name as name FROM users WHERE deleted_at IS NULL");
-    const [projects] = await db.promise().query("SELECT id, project_name as name FROM user_projects WHERE deleted_at IS NULL");
-    const [team] = await db.promise().query("SELECT id, display_name as name FROM users WHERE primary_role IN ('admin') AND deleted_at IS NULL");
+    const [clients] = await db
+      .promise()
+      .query('SELECT id, display_name as name FROM users WHERE deleted_at IS NULL');
+    const [projects] = await db
+      .promise()
+      .query('SELECT id, project_name as name FROM user_projects WHERE deleted_at IS NULL');
+    const [team] = await db
+      .promise()
+      .query(
+        "SELECT id, display_name as name FROM users WHERE primary_role IN ('admin') AND deleted_at IS NULL",
+      );
 
     res.json({
       success: true,
@@ -1102,8 +1210,8 @@ router.get('/ledger', async (req, res) => {
       filters: {
         clients,
         projects,
-        team
-      }
+        team,
+      },
     });
   } catch (error) {
     console.error('Error fetching ledger:', error);
@@ -1142,19 +1250,19 @@ router.get('/risk-alerts', async (req, res) => {
 
     res.json({
       success: true,
-      data: allRisks.map(r => ({
+      data: allRisks.map((r) => ({
         id: r.id,
         title: r.title,
         description: r.description,
-        level: r.level
-      }))
+        level: r.level,
+      })),
     });
   } catch (error) {
     console.error('Error fetching risk alerts:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch risk alerts',
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -1203,23 +1311,23 @@ router.get('/crm-telemetry', async (req, res) => {
     `);
 
     const statusMap = {
-      'planning': { label: 'Planning', color: 'bg-blue-100 text-blue-700' },
+      planning: { label: 'Planning', color: 'bg-blue-100 text-blue-700' },
       'in-progress': { label: 'Active', color: 'bg-green-100 text-green-700' },
       'on-hold': { label: 'On Hold', color: 'bg-amber-100 text-amber-700' },
-      'completed': { label: 'Completed', color: 'bg-emerald-100 text-emerald-700' }
+      completed: { label: 'Completed', color: 'bg-emerald-100 text-emerald-700' },
     };
 
-    const pipeline = pipelineData.map(d => ({
+    const pipeline = pipelineData.map((d) => ({
       stage: statusMap[d.status]?.label || d.status,
       count: d.count,
-      color: statusMap[d.status]?.color || 'bg-slate-100 text-slate-700'
+      color: statusMap[d.status]?.color || 'bg-slate-100 text-slate-700',
     }));
 
     res.json({
       success: true,
       clients,
       opportunities,
-      pipeline
+      pipeline,
     });
   } catch (error) {
     console.error('Error fetching CRM telemetry:', error);
@@ -1232,9 +1340,11 @@ router.get('/crm-telemetry', async (req, res) => {
 // =============================================
 router.get('/projects/all', async (req, res) => {
   try {
-    const [projects] = await db.promise().query(
-      'SELECT id, project_name FROM user_projects WHERE deleted_at IS NULL ORDER BY project_name ASC'
-    );
+    const [projects] = await db
+      .promise()
+      .query(
+        'SELECT id, project_name FROM user_projects WHERE deleted_at IS NULL ORDER BY project_name ASC',
+      );
     res.json({ success: true, projects });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch projects' });
@@ -1243,25 +1353,39 @@ router.get('/projects/all', async (req, res) => {
 
 router.post('/reports', async (req, res) => {
   try {
-    const { project_id, title, summary, file_data, file_type, file_name, file_size, admin_id } = req.body;
+    const { project_id, title, summary, file_data, file_type, file_name, file_size, admin_id } =
+      req.body;
 
     if (!project_id || !title || !file_data) {
-      return res.status(400).json({ success: false, message: 'Project, Title, and File are required' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Project, Title, and File are required' });
     }
 
     const buffer = Buffer.from(file_data.split(',')[1] || file_data, 'base64');
 
-    const [result] = await db.promise().query(`
+    const [result] = await db.promise().query(
+      `
       INSERT INTO project_reports (
         project_id, title, summary, file_data, file_type, file_size,
         report_date, status, created_by, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, NOW(), 'final', ?, NOW())
-    `, [project_id, title, summary, buffer, file_type || 'application/pdf', file_size || 0, admin_id || 1]);
+    `,
+      [
+        project_id,
+        title,
+        summary,
+        buffer,
+        file_type || 'application/pdf',
+        file_size || 0,
+        admin_id || 1,
+      ],
+    );
 
     res.status(201).json({
       success: true,
       message: 'Report published successfully to project node',
-      reportId: result.insertId
+      reportId: result.insertId,
     });
   } catch (error) {
     console.error('Report Publication Error:', error);
@@ -1274,15 +1398,28 @@ router.post('/reports', async (req, res) => {
 // =============================================
 router.post('/relay-alert', async (req, res) => {
   try {
-    const { project_name, user_identity, title, message, media_data, media_type, media_name, priority } = req.body;
+    const {
+      project_name,
+      user_identity,
+      title,
+      message,
+      media_data,
+      media_type,
+      media_name,
+      priority,
+    } = req.body;
 
-    const [userRows] = await db.promise().query(
-      'SELECT id FROM users WHERE email = ? OR display_name = ? LIMIT 1',
-      [user_identity, user_identity]
-    );
+    const [userRows] = await db
+      .promise()
+      .query('SELECT id FROM users WHERE email = ? OR display_name = ? LIMIT 1', [
+        user_identity,
+        user_identity,
+      ]);
 
     if (userRows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Unique user identity not found in node' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Unique user identity not found in node' });
     }
 
     const userId = userRows[0].id;
@@ -1293,16 +1430,22 @@ router.post('/relay-alert', async (req, res) => {
 
     const finalMessage = `[Project: ${project_name}] ${message}`;
 
-    const [result] = await db.promise().query(`
+    const [result] = await db.promise().query(
+      `
       INSERT INTO notifications (
         user_id, notification_type, title, message, priority,
         attachment_data, attachment_type, attachment_name,
         created_at, status
       ) VALUES (?, 'system', ?, ?, ?, ?, ?, ?, NOW(), 'unread')
-    `, [userId, title, finalMessage, priority || 'normal', buffer, media_type, media_name]);
+    `,
+      [userId, title, finalMessage, priority || 'normal', buffer, media_type, media_name],
+    );
 
-    res.json({ success: true, message: 'Strategic alert relayed successfully', id: result.insertId });
-
+    res.json({
+      success: true,
+      message: 'Strategic alert relayed successfully',
+      id: result.insertId,
+    });
   } catch (error) {
     console.error('Relay Error:', error);
     res.status(500).json({ success: false, message: 'Relay link failed' });
@@ -1314,9 +1457,9 @@ router.post('/relay-alert', async (req, res) => {
 // =============================================
 router.get('/crm/contacts', async (req, res) => {
   try {
-    const [contacts] = await db.promise().query(
-      'SELECT * FROM crm_contacts WHERE deleted_at IS NULL ORDER BY created_at DESC'
-    );
+    const [contacts] = await db
+      .promise()
+      .query('SELECT * FROM crm_contacts WHERE deleted_at IS NULL ORDER BY created_at DESC');
     res.json({ success: true, contacts });
   } catch (error) {
     console.error('Error fetching CRM contacts:', error);
@@ -1328,10 +1471,12 @@ router.post('/crm/contacts', async (req, res) => {
   try {
     const { name, email, phone, company, status, notes } = req.body;
     if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
-    const [result] = await db.promise().query(
-      'INSERT INTO crm_contacts (name, email, phone, company, status, notes) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, email || null, phone || null, company || null, status || 'lead', notes || null]
-    );
+    const [result] = await db
+      .promise()
+      .query(
+        'INSERT INTO crm_contacts (name, email, phone, company, status, notes) VALUES (?, ?, ?, ?, ?, ?)',
+        [name, email || null, phone || null, company || null, status || 'lead', notes || null],
+      );
     res.status(201).json({ success: true, message: 'Contact created', id: result.insertId });
   } catch (error) {
     console.error('Error creating CRM contact:', error);
@@ -1343,11 +1488,14 @@ router.put('/crm/contacts/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, phone, company, status, notes } = req.body;
-    const [result] = await db.promise().query(
-      'UPDATE crm_contacts SET name = COALESCE(?, name), email = COALESCE(?, email), phone = COALESCE(?, phone), company = COALESCE(?, company), status = COALESCE(?, status), notes = COALESCE(?, notes) WHERE id = ? AND deleted_at IS NULL',
-      [name, email, phone, company, status, notes, id]
-    );
-    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Contact not found' });
+    const [result] = await db
+      .promise()
+      .query(
+        'UPDATE crm_contacts SET name = COALESCE(?, name), email = COALESCE(?, email), phone = COALESCE(?, phone), company = COALESCE(?, company), status = COALESCE(?, status), notes = COALESCE(?, notes) WHERE id = ? AND deleted_at IS NULL',
+        [name, email, phone, company, status, notes, id],
+      );
+    if (result.affectedRows === 0)
+      return res.status(404).json({ success: false, message: 'Contact not found' });
     res.json({ success: true, message: 'Contact updated' });
   } catch (error) {
     console.error('Error updating CRM contact:', error);
@@ -1358,11 +1506,13 @@ router.put('/crm/contacts/:id', async (req, res) => {
 router.delete('/crm/contacts/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const [result] = await db.promise().query(
-      'UPDATE crm_contacts SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
-      [id]
-    );
-    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Contact not found' });
+    const [result] = await db
+      .promise()
+      .query('UPDATE crm_contacts SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL', [
+        id,
+      ]);
+    if (result.affectedRows === 0)
+      return res.status(404).json({ success: false, message: 'Contact not found' });
     res.json({ success: true, message: 'Contact deleted' });
   } catch (error) {
     console.error('Error deleting CRM contact:', error);
@@ -1375,9 +1525,13 @@ router.delete('/crm/contacts/:id', async (req, res) => {
 // =============================================
 router.get('/settings', async (req, res) => {
   try {
-    const [settings] = await db.promise().query('SELECT * FROM admin_settings ORDER BY setting_group, setting_key');
+    const [settings] = await db
+      .promise()
+      .query('SELECT * FROM admin_settings ORDER BY setting_group, setting_key');
     const settingsMap = {};
-    settings.forEach(s => { settingsMap[s.setting_key] = s.setting_value; });
+    settings.forEach((s) => {
+      settingsMap[s.setting_key] = s.setting_value;
+    });
     res.json({ success: true, settings: settingsMap, raw: settings });
   } catch (error) {
     console.error('Error fetching settings:', error);
@@ -1393,10 +1547,12 @@ router.put('/settings', async (req, res) => {
     }
     const keys = Object.keys(updates);
     for (const key of keys) {
-      await db.promise().query(
-        'INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
-        [key, updates[key], updates[key]]
-      );
+      await db
+        .promise()
+        .query(
+          'INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
+          [key, updates[key], updates[key]],
+        );
     }
     res.json({ success: true, message: 'Settings updated', updated: keys });
   } catch (error) {
@@ -1410,9 +1566,29 @@ router.put('/settings', async (req, res) => {
 // =============================================
 router.get('/crm-telemetry', async (req, res) => {
   try {
-    const [contacts] = await db.promise().query("SELECT * FROM crm_contacts WHERE deleted_at IS NULL ORDER BY created_at DESC");
-    res.json({ success: true, clients: contacts, opportunities: [], pipeline: [{ stage: 'Leads', count: contacts.filter(c => c.status === 'lead').length, color: 'bg-blue-500' }, { stage: 'Active', count: contacts.filter(c => c.status === 'active').length, color: 'bg-green-500' }] });
-  } catch (error) { res.status(500).json({ success: false, message: 'CRM failed' }); }
+    const [contacts] = await db
+      .promise()
+      .query('SELECT * FROM crm_contacts WHERE deleted_at IS NULL ORDER BY created_at DESC');
+    res.json({
+      success: true,
+      clients: contacts,
+      opportunities: [],
+      pipeline: [
+        {
+          stage: 'Leads',
+          count: contacts.filter((c) => c.status === 'lead').length,
+          color: 'bg-blue-500',
+        },
+        {
+          stage: 'Active',
+          count: contacts.filter((c) => c.status === 'active').length,
+          color: 'bg-green-500',
+        },
+      ],
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'CRM failed' });
+  }
 });
 
 // =============================================
@@ -1422,9 +1598,13 @@ router.get('/node-settings', async (req, res) => {
   try {
     const [settings] = await db.promise().query('SELECT * FROM admin_settings');
     const m = {};
-    settings.forEach(s => { m[s.setting_key] = s.setting_value; });
+    settings.forEach((s) => {
+      m[s.setting_key] = s.setting_value;
+    });
     res.json({ success: true, settings: m, system: { status: 'operational', uptime: '99.9%' } });
-  } catch (error) { res.status(500).json({ success: false, message: 'Failed' }); }
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed' });
+  }
 });
 
 // =============================================
@@ -1432,9 +1612,15 @@ router.get('/node-settings', async (req, res) => {
 // =============================================
 router.get('/ledger', async (req, res) => {
   try {
-    const [entries] = await db.promise().query('SELECT * FROM accounting_entries WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 100');
+    const [entries] = await db
+      .promise()
+      .query(
+        'SELECT * FROM accounting_entries WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 100',
+      );
     res.json({ success: true, entries });
-  } catch (error) { res.status(500).json({ success: false, message: 'Failed' }); }
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed' });
+  }
 });
 
 // =============================================
@@ -1442,9 +1628,13 @@ router.get('/ledger', async (req, res) => {
 // =============================================
 router.get('/mpesa/transactions', async (req, res) => {
   try {
-    const [rows] = await db.promise().query('SELECT * FROM mpesa_transactions ORDER BY created_at DESC LIMIT 50');
+    const [rows] = await db
+      .promise()
+      .query('SELECT * FROM mpesa_transactions ORDER BY created_at DESC LIMIT 50');
     res.json({ success: true, transactions: rows });
-  } catch (error) { res.status(500).json({ success: false, message: 'Failed' }); }
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed' });
+  }
 });
 
 // =============================================
@@ -1454,27 +1644,52 @@ router.post('/team', async (req, res) => {
   try {
     const { name, role, department, description, email } = req.body;
     if (!name) return res.status(400).json({ error: 'Name required' });
-    const [r] = await db.promise().query('INSERT INTO team_members (name, role, department, description, email, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())', [name, role || 'member', department || null, description || null, email || null]);
+    const [r] = await db
+      .promise()
+      .query(
+        'INSERT INTO team_members (name, role, department, description, email, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
+        [name, role || 'member', department || null, description || null, email || null],
+      );
     res.status(201).json({ success: true, id: r.insertId });
-  } catch (error) { res.status(500).json({ error: 'Failed' }); }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed' });
+  }
 });
 
 // =============================================
 // DELETE ROUTES
 // =============================================
 router.delete('/accounting/entries/:id', async (req, res) => {
-  try { await db.promise().query('UPDATE accounting_entries SET deleted_at = NOW() WHERE id = ?', [req.params.id]); res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: 'Failed' }); }
+  try {
+    await db
+      .promise()
+      .query('UPDATE accounting_entries SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed' });
+  }
 });
 
 router.delete('/invoices/:id', async (req, res) => {
-  try { await db.promise().query('UPDATE invoices SET deleted_at = NOW() WHERE id = ?', [req.params.id]); res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: 'Failed' }); }
+  try {
+    await db
+      .promise()
+      .query('UPDATE invoices SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed' });
+  }
 });
 
 router.delete('/blog-articles/:id', async (req, res) => {
-  try { await db.promise().query('UPDATE blog_articles SET deleted_at = NOW() WHERE id = ?', [req.params.id]); res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: 'Failed' }); }
+  try {
+    await db
+      .promise()
+      .query('UPDATE blog_articles SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed' });
+  }
 });
 
 module.exports = router;

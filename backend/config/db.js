@@ -4,8 +4,8 @@ const { endpoints, clean, DB_NAME } = require('../../server/config/dbEndpoints')
 // Create a pool CLUSTER with both MySQL endpoints (local + claude). mysql2
 // fails over automatically: dead node -> next live node, and back when it heals.
 const cluster = mysql.createPoolCluster({
-  canRetry: true,           // retry on the next available node
-  removeNodeErrorCount: 1,  // take a node out of rotation after 1 failed conn
+  canRetry: true, // retry on the next available node
+  removeNodeErrorCount: 1, // take a node out of rotation after 1 failed conn
   restoreNodeTimeout: 5000, // ...and try it again after 5s
   defaultSelector: 'ORDER', // always prefer endpoint #1 (local), then #2 (claude)
 });
@@ -21,11 +21,9 @@ endpoints().forEach((cfg, i) => {
   });
 });
 
-cluster.on('warn', (err) =>
-  console.warn(`[DB CLUSTER] warn: ${err.code || err.message}`)
-);
+cluster.on('warn', (err) => console.warn(`[DB CLUSTER] warn: ${err.code || err.message}`));
 cluster.on('offline', (id) =>
-  console.error(`[DB CLUSTER] ${id} offline — failing over to the other port`)
+  console.error(`[DB CLUSTER] ${id} offline — failing over to the other port`),
 );
 cluster.on('remove', (id) => console.error(`[DB CLUSTER] ${id} removed`));
 

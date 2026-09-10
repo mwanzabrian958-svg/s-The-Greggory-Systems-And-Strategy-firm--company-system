@@ -1,10 +1,11 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AdminRoute } from './components/AdminRoute';
+import { PublicRoute } from './components/PublicRoute';
 import AdminLayout from './components/AdminLayout';
 
 // ---- Code-split admin pages (loaded on demand per route) ----
-const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const Login = lazy(() => import('./pages/SimpleLogin'));
 const AdvancedDashboard = lazy(() => import('./pages/AdvancedDashboard').then(m => ({ default: m.AdvancedDashboard })));
 const Users = lazy(() => import('./pages/Users').then(m => ({ default: m.Users })));
 const Content = lazy(() => import('./pages/Content').then(m => ({ default: m.Content })));
@@ -46,8 +47,39 @@ const SalesHub = lazy(() => import('./pages/SalesHub'));
 const MarketingCommand = lazy(() => import('./pages/MarketingCommand'));
 const ResearchLab = lazy(() => import('./pages/ResearchLab'));
 const HRTemple = lazy(() => import('./pages/HRTemple'));
-const FinanceLegal = lazy(() => import('./pages/FinanceLegal'));
-const OperationsCenter = lazy(() => import('./pages/OperationsCenter'));
+const FinanceLegal = lazy(() => import('./pages/departments/FinanceLegal'));
+const HumanResources = lazy(() => import('./pages/departments/HumanResources'));
+const ITServices = lazy(() => import('./pages/departments/ITServices'));
+const Marketing = lazy(() => import('./pages/departments/Marketing'));
+const OperationsCenter = lazy(() => import('./pages/departments/Operations'));
+const StrategicPlanning = lazy(() => import('./pages/departments/StrategicPlanning'));
+const BusinessDevelopment = lazy(() => import('./pages/departments/BusinessDevelopment'));
+const QualityAssurance = lazy(() => import('./pages/departments/QualityAssurance'));
+const LegalAffairs = lazy(() => import('./pages/departments/LegalAffairs'));
+const Compliance = lazy(() => import('./pages/departments/Compliance'));
+const CorporateCommunications = lazy(() => import('./pages/departments/CorporateCommunications'));
+const ExecutiveOffice = lazy(() => import('./pages/departments/ExecutiveOffice'));
+const SpecialProjects = lazy(() => import('./pages/departments/SpecialProjects'));
+
+// ---- Employee workstation pages ----
+const FinanceManager = lazy(() => import('./pages/employees/FinanceManager'));
+const AccountsReceivable = lazy(() => import('./pages/employees/AccountsReceivable'));
+const AccountsPayable = lazy(() => import('./pages/employees/AccountsPayable'));
+const FinancialAnalyst = lazy(() => import('./pages/employees/FinancialAnalyst'));
+const PaymentProcessor = lazy(() => import('./pages/employees/PaymentProcessor'));
+const HROfficer = lazy(() => import('./pages/employees/HROfficer'));
+const ITOfficer = lazy(() => import('./pages/employees/ITOfficer'));
+const MarketingOfficer = lazy(() => import('./pages/employees/MarketingOfficer'));
+const OperationsOfficer = lazy(() => import('./pages/employees/OperationsOfficer'));
+const StrategyOfficer = lazy(() => import('./pages/employees/StrategyOfficer'));
+const BDOfficer = lazy(() => import('./pages/employees/BDOfficer'));
+const QAOfficer = lazy(() => import('./pages/employees/QAOfficer'));
+const LegalOfficer = lazy(() => import('./pages/employees/LegalOfficer'));
+const ComplianceOfficer = lazy(() => import('./pages/employees/ComplianceOfficer'));
+const CommsOfficer = lazy(() => import('./pages/employees/CommsOfficer'));
+const ExecutiveOfficer = lazy(() => import('./pages/employees/ExecutiveOfficer'));
+const ProjectsOfficer = lazy(() => import('./pages/employees/ProjectsOfficer'));
+const MainframeHub = lazy(() => import('./pages/MainframeHub'));
 const DepartmentsHub = lazy(() => import('./pages/DepartmentsHub'));
 
 import { PERMISSIONS } from './utils/permissions';
@@ -76,8 +108,8 @@ export function AdminRouter() {
 
   const handleLogout = () => {
     sessionStorage.clear(); localStorage.clear(); setUser(null); setIsAuthenticated(false);
-    // Return to the department-tile portal (Web Master + 12 department tiles)
-    if (!location.pathname.includes('/login')) navigate('/dashboard', { replace: true });
+    // Return to home page (InstitutionalCockpit — hosts Web Master tile + all department tiles)
+    navigate('/dashboard', { replace: true });
   };
 
   if (isLoading) return (
@@ -112,6 +144,44 @@ export function AdminRouter() {
       <Route path="personnel/create" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><CreatePersonnel /></AdminRoute>} />
       <Route path="personnel/preview/:id" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><PersonnelPreview /></AdminRoute>} />
 
+      <Route path="mainframe" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><MainframeHub /></AdminRoute>} />
+
+      {/* Department Dashboards - Public access (no auth required, outside auth check) */}
+      <Route path="departments" element={<PublicRoute><DepartmentsHub /></PublicRoute>} />
+      <Route path="departments/human-resources" element={<PublicRoute><HumanResources /></PublicRoute>} />
+      <Route path="departments/information-technology" element={<PublicRoute><ITServices /></PublicRoute>} />
+      <Route path="departments/marketing" element={<PublicRoute><Marketing /></PublicRoute>} />
+      <Route path="departments/strategic-planning" element={<PublicRoute><StrategicPlanning /></PublicRoute>} />
+      <Route path="departments/business-development" element={<PublicRoute><BusinessDevelopment /></PublicRoute>} />
+      <Route path="departments/quality-assurance" element={<PublicRoute><QualityAssurance /></PublicRoute>} />
+      <Route path="departments/legal-affairs" element={<PublicRoute><LegalAffairs /></PublicRoute>} />
+      <Route path="departments/compliance" element={<PublicRoute><Compliance /></PublicRoute>} />
+      <Route path="departments/corporate-communications" element={<PublicRoute><CorporateCommunications /></PublicRoute>} />
+      <Route path="departments/executive-office" element={<PublicRoute><ExecutiveOffice /></PublicRoute>} />
+      <Route path="departments/special-projects" element={<PublicRoute><SpecialProjects /></PublicRoute>} />
+      <Route path="departments/finance-legal" element={<PublicRoute><FinanceLegal /></PublicRoute>} />
+      <Route path="departments/operations" element={<PublicRoute><OperationsCenter /></PublicRoute>} />
+
+      {/* Employee Workstations - Finance department (public access, role-based UI) */}
+      <Route path="employees/finance-manager" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><FinanceManager /></AdminRoute>} />
+      <Route path="employees/accounts-receivable" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><AccountsReceivable /></AdminRoute>} />
+      <Route path="employees/accounts-payable" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><AccountsPayable /></AdminRoute>} />
+      <Route path="employees/financial-analyst" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><FinancialAnalyst /></AdminRoute>} />
+      <Route path="employees/payment-processor" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><PaymentProcessor /></AdminRoute>} />
+      <Route path="employees/hr" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><HROfficer /></AdminRoute>} />
+      <Route path="employees/it" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><ITOfficer /></AdminRoute>} />
+      <Route path="employees/marketing" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><MarketingOfficer /></AdminRoute>} />
+      <Route path="employees/operations" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><OperationsOfficer /></AdminRoute>} />
+      <Route path="employees/strategy" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><StrategyOfficer /></AdminRoute>} />
+      <Route path="employees/business-dev" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><BDOfficer /></AdminRoute>} />
+      <Route path="employees/qa" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><QAOfficer /></AdminRoute>} />
+      <Route path="employees/legal" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><LegalOfficer /></AdminRoute>} />
+      <Route path="employees/compliance" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><ComplianceOfficer /></AdminRoute>} />
+      <Route path="employees/comms" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><CommsOfficer /></AdminRoute>} />
+      <Route path="employees/executive" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><ExecutiveOfficer /></AdminRoute>} />
+      <Route path="employees/projects" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><ProjectsOfficer /></AdminRoute>} />
+
+
       <Route path="*" element={
         isAuthenticated ? (
           <AdminLayout user={user} onLogout={handleLogout}>
@@ -135,20 +205,6 @@ export function AdminRouter() {
                 <Route path="messages" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><EmailInbox /></AdminRoute>} />
                 <Route path="permissions" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><PermissionsManager /></AdminRoute>} />
                <Route path="search" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><SearchResults /></AdminRoute>} />
-                {/* Department Dashboards */}
-                <Route path="departments" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><DepartmentsHub /></AdminRoute>} />
-                <Route path="departments/executive" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><ExecutiveDashboard /></AdminRoute>} />
-                <Route path="departments/development" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><DevelopmentHub /></AdminRoute>} />
-                <Route path="departments/consulting" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><ConsultingStudio /></AdminRoute>} />
-                <Route path="departments/delivery" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><DeliveryCenter /></AdminRoute>} />
-                <Route path="departments/design" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><DesignStudio /></AdminRoute>} />
-                <Route path="departments/tech" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><TechServices /></AdminRoute>} />
-                <Route path="departments/sales" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><SalesHub /></AdminRoute>} />
-                <Route path="departments/marketing" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><MarketingCommand /></AdminRoute>} />
-                <Route path="departments/research" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><ResearchLab /></AdminRoute>} />
-                <Route path="departments/hr" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><HRTemple /></AdminRoute>} />
-                <Route path="departments/finance-legal" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><FinanceLegal /></AdminRoute>} />
-                <Route path="departments/operations" element={<AdminRoute user={user} isAuthenticated={isAuthenticated}><OperationsCenter /></AdminRoute>} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Routes>
           </AdminLayout>

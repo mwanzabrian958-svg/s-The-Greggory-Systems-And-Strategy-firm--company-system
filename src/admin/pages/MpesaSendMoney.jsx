@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiCall } from "../../services/api";
-import { Smartphone, Save, RefreshCw, Search, CheckCircle } from "lucide-react";
+import { formatKSH } from "../../utils/currencyUtils";
+import { Smartphone, Save, RefreshCw, Search, CheckCircle, X, DollarSign, ArrowLeft } from "lucide-react";
 
 export function MpesaSendMoney() {
+  const navigate = useNavigate();
   const [payments, setPayments] = useState([]);
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -73,7 +76,12 @@ export function MpesaSendMoney() {
     return (p.mpesa_receipt && p.mpesa_receipt.toLowerCase().includes(t)) || (p.phone_number && p.phone_number.includes(t)) || (p.client_name && p.client_name.toLowerCase().includes(t));
   });
 
-  if (loading) return <div className="flex items-center justify-center py-40"><RefreshCw className="animate-spin text-blue-700 w-8 h-8" /></div>;
+  if (loading) return (
+    <div className="fixed inset-0 bg-[#00122B] flex flex-col items-center justify-center z-[500]">
+      <RefreshCw className="animate-spin text-blue-400 mb-4" size={32} />
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Loading M-Pesa Transactions...</p>
+    </div>
+  );
 
   return (
     <div className="space-y-6 w-full">

@@ -12,7 +12,9 @@ const MPESA_ENV = process.env.NODE_ENV === 'production' ? 'api' : 'sandbox';
 async function getAccessToken() {
   return new Promise((resolve, reject) => {
     if (!MPESA_CONSUMER_KEY || !MPESA_CONSUMER_SECRET) {
-      console.warn('[MPESA] Consumer key or secret missing. Payment gateway will run in simulation mode.');
+      console.warn(
+        '[MPESA] Consumer key or secret missing. Payment gateway will run in simulation mode.',
+      );
       return resolve('simulated-token');
     }
 
@@ -22,13 +24,13 @@ async function getAccessToken() {
       path: '/oauth/v1/generate?grant_type=client_credentials',
       method: 'GET',
       headers: {
-        'Authorization': `Basic ${auth}`
-      }
+        Authorization: `Basic ${auth}`,
+      },
     };
 
     const req = https.request(options, (res) => {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
+      res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
         try {
           const response = JSON.parse(data);
@@ -56,11 +58,14 @@ async function initiateSTKPush(phoneNumber, amount, accountReference, transactio
       simulated: true,
       MerchantRequestID: `sim-${Date.now()}`,
       CheckoutRequestID: `chk-${Math.random().toString(36).substring(7)}`,
-      ResponseDescription: 'Simulation Mode: STK Push request received and acknowledged locally.'
+      ResponseDescription: 'Simulation Mode: STK Push request received and acknowledged locally.',
     };
   }
 
-  const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[^0-9]/g, '')
+    .slice(0, 14);
   const password = Buffer.from(`${MPESA_SHORTCODE}${MPESA_PASSKEY}${timestamp}`).toString('base64');
 
   // Format phone number to 254XXXXXXXXX
@@ -75,9 +80,11 @@ async function initiateSTKPush(phoneNumber, amount, accountReference, transactio
     PartyA: formattedPhone,
     PartyB: MPESA_SHORTCODE,
     PhoneNumber: formattedPhone,
-    CallBackURL: process.env.MPESA_CALLBACK_URL || `${process.env.BACKEND_URL || 'https://your-domain.com'}/api/mpesa/callback`,
+    CallBackURL:
+      process.env.MPESA_CALLBACK_URL ||
+      `${process.env.BACKEND_URL || 'https://your-domain.com'}/api/mpesa/callback`,
     AccountReference: accountReference,
-    TransactionDesc: transactionDesc
+    TransactionDesc: transactionDesc,
   });
 
   return new Promise((resolve, reject) => {
@@ -86,15 +93,15 @@ async function initiateSTKPush(phoneNumber, amount, accountReference, transactio
       path: '/mpesa/stkpush/v1/processrequest',
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'Content-Length': postData.length
-      }
+        'Content-Length': postData.length,
+      },
     };
 
     const req = https.request(options, (res) => {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
+      res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
         try {
           const response = JSON.parse(data);
@@ -113,5 +120,5 @@ async function initiateSTKPush(phoneNumber, amount, accountReference, transactio
 
 module.exports = {
   getAccessToken,
-  initiateSTKPush
+  initiateSTKPush,
 };

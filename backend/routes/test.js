@@ -9,10 +9,10 @@ router.get('/test-db', async (req, res) => {
     res.json({ success: true, message: 'Database connection successful', data: rows });
   } catch (error) {
     console.error('Database connection error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Database connection failed', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Database connection failed',
+      error: error.message,
     });
   }
 });
@@ -21,21 +21,24 @@ router.get('/test-db', async (req, res) => {
 router.post('/test-insert', async (req, res) => {
   try {
     const { name, email } = req.body;
-    const [result] = await db.promise().query(
-      'INSERT INTO users (name, email, password, created_at) VALUES (?, ?, ?, NOW())',
-      [name, email, 'testpassword']
-    );
-    res.json({ 
-      success: true, 
+    const [result] = await db
+      .promise()
+      .query('INSERT INTO users (name, email, password, created_at) VALUES (?, ?, ?, NOW())', [
+        name,
+        email,
+        'testpassword',
+      ]);
+    res.json({
+      success: true,
       message: 'Test user created successfully',
-      userId: result.insertId
+      userId: result.insertId,
     });
   } catch (error) {
     console.error('Test insert error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Test insert failed', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Test insert failed',
+      error: error.message,
     });
   }
 });
@@ -47,10 +50,10 @@ router.get('/test-users', async (req, res) => {
     res.json({ success: true, users: rows });
   } catch (error) {
     console.error('Test select error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Test select failed', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Test select failed',
+      error: error.message,
     });
   }
 });

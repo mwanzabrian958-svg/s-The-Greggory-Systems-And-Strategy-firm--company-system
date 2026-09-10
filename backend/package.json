@@ -2,6 +2,7 @@
   "name": "the-greggory-systems-and-strategy-firm-backend",
   "version": "1.0.0",
   "private": true,
+  "type": "commonjs",
   "description": "API server for The-Greggory-Systems-And-Strategy-firm",
   "main": "server.js",
   "scripts": {

@@ -9,8 +9,10 @@ const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'the_greggory_systems_and_strategy_firm_db';
 
 // Default admin credentials are generated per-run unless provided via env.
-const DEFAULT_ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@thegreggorysystemsandstrategyfirm.org';
-const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url');
+const DEFAULT_ADMIN_EMAIL =
+  process.env.ADMIN_EMAIL || 'admin@thegreggorysystemsandstrategyfirm.org';
+const DEFAULT_ADMIN_PASSWORD =
+  process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url');
 const DEFAULT_ADMIN_HASH = bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 10);
 
 // Connect without database to create it
@@ -18,7 +20,7 @@ const connection = mysql.createConnection({
   host: DB_HOST,
   user: DB_USER,
   password: DB_PASSWORD,
-  multipleStatements: true
+  multipleStatements: true,
 });
 
 console.log('Creating database and tables...');

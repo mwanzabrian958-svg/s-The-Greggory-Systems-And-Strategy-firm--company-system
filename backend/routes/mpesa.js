@@ -12,14 +12,16 @@ router.post('/stkpush', async (req, res) => {
     const { phoneNumber, amount, accountReference, description, userId } = req.body;
 
     if (!phoneNumber || !amount) {
-      return res.status(400).json({ success: false, message: 'Phone number and amount are required' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Phone number and amount are required' });
     }
 
     const result = await initiateSTKPush(
       phoneNumber,
       amount,
       accountReference || 'GSS-FIRM',
-      description || 'Consultancy Payment'
+      description || 'Consultancy Payment',
     );
 
     if (result.success) {
@@ -28,9 +30,11 @@ router.post('/stkpush', async (req, res) => {
       let createdBy = Number(userId) || null;
       if (!createdBy) {
         try {
-          const [u] = await db.promise().query("SELECT id FROM users ORDER BY id LIMIT 1");
+          const [u] = await db.promise().query('SELECT id FROM users ORDER BY id LIMIT 1');
           createdBy = u?.[0]?.id ?? null;
-        } catch (_) { /* leave null */ }
+        } catch (_) {
+          /* leave null */
+        }
       }
 
       // Record transaction as pending in MySQL
@@ -46,8 +50,8 @@ router.post('/stkpush', async (req, res) => {
             phoneNumber,
             accountReference || 'GSS-FIRM',
             JSON.stringify(result),
-            createdBy
-          ]
+            createdBy,
+          ],
         );
       } catch (dbErr) {
         console.warn('[MPESA] Failed to log pending transaction:', dbErr.message);
@@ -55,20 +59,24 @@ router.post('/stkpush', async (req, res) => {
 
       res.json({
         success: true,
-        message: result.simulated ? 'Simulation: STK Push initialized' : 'STK Push sent to your phone',
+        message: result.simulated
+          ? 'Simulation: STK Push initialized'
+          : 'STK Push sent to your phone',
         checkoutRequestId: result.CheckoutRequestID,
-        simulated: result.simulated
+        simulated: result.simulated,
       });
     } else {
       res.status(500).json({
         success: false,
         message: 'M-Pesa STK Push failed',
-        error: result.errorMessage || result.ResponseDescription
+        error: result.errorMessage || result.ResponseDescription,
       });
     }
   } catch (error) {
     console.error('[MPESA STKPUSH] Error:', error);
-    res.status(500).json({ success: false, message: 'Server error during STK Push', error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: 'Server error during STK Push', error: error.message });
   }
 });
 
@@ -85,14 +93,16 @@ router.post('/callback', async (req, res) => {
     const resultCode = stkCallback.ResultCode;
     const resultDesc = stkCallback.ResultDesc;
 
-    console.log(`[MPESA CALLBACK] Received for ${checkoutRequestId}: ${resultDesc} (${resultCode})`);
+    console.log(
+      `[MPESA CALLBACK] Received for ${checkoutRequestId}: ${resultDesc} (${resultCode})`,
+    );
 
     let status = resultCode === 0 ? 'completed' : 'failed';
     let mpesaReceiptNumber = null;
 
     if (resultCode === 0) {
       const callbackMetadata = stkCallback.CallbackMetadata.Item;
-      const receiptItem = callbackMetadata.find(item => item.Name === 'MpesaReceiptNumber');
+      const receiptItem = callbackMetadata.find((item) => item.Name === 'MpesaReceiptNumber');
       mpesaReceiptNumber = receiptItem ? receiptItem.Value : null;
     }
 
@@ -101,16 +111,18 @@ router.post('/callback', async (req, res) => {
       `UPDATE mpesa_transactions
        SET status = ?, result_code = ?, result_desc = ?, mpesa_receipt = ?, updated_at = NOW()
        WHERE transaction_id = ?`,
-      [status, resultCode, resultDesc, mpesaReceiptNumber, checkoutRequestId]
+      [status, resultCode, resultDesc, mpesaReceiptNumber, checkoutRequestId],
     );
 
     // If payment was successful, mirror it to the General Ledger (accounting_entries)
     if (status === 'completed') {
       try {
-        const [txRows] = await db.promise().query(
-          'SELECT project_id, amount, phone_number, account_reference, client_id FROM mpesa_transactions WHERE transaction_id = ?',
-          [checkoutRequestId]
-        );
+        const [txRows] = await db
+          .promise()
+          .query(
+            'SELECT project_id, amount, phone_number, account_reference, client_id FROM mpesa_transactions WHERE transaction_id = ?',
+            [checkoutRequestId],
+          );
 
         if (txRows.length > 0) {
           const tx = txRows[0];
@@ -125,8 +137,8 @@ router.post('/callback', async (req, res) => {
               tx.amount,
               mpesaReceiptNumber || checkoutRequestId,
               `M-Pesa Payment from ${tx.phone_number} (Ref: ${tx.account_reference})`,
-              tx.client_id || 1
-            ]
+              tx.client_id || 1,
+            ],
           );
           console.log(`[MPESA] Ledger Entry Created for transaction ${checkoutRequestId}`);
         }
@@ -135,10 +147,10 @@ router.post('/callback', async (req, res) => {
       }
     }
 
-    res.json({ ResultCode: 0, ResultDesc: "Success" });
+    res.json({ ResultCode: 0, ResultDesc: 'Success' });
   } catch (error) {
     console.error('[MPESA CALLBACK] Error:', error);
-    res.status(500).json({ ResultCode: 1, ResultDesc: "Internal Server Error" });
+    res.status(500).json({ ResultCode: 1, ResultDesc: 'Internal Server Error' });
   }
 });
 
@@ -149,10 +161,12 @@ router.post('/callback', async (req, res) => {
 router.get('/status/:checkoutRequestId', async (req, res) => {
   try {
     const { checkoutRequestId } = req.params;
-    const [rows] = await db.promise().query(
-      'SELECT status, result_desc, mpesa_receipt FROM mpesa_transactions WHERE transaction_id = ?',
-      [checkoutRequestId]
-    );
+    const [rows] = await db
+      .promise()
+      .query(
+        'SELECT status, result_desc, mpesa_receipt FROM mpesa_transactions WHERE transaction_id = ?',
+        [checkoutRequestId],
+      );
 
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Transaction not found' });

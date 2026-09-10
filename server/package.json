@@ -1,0 +1,7 @@
+{
+  "name": "the-greggory-systems-and-strategy-firm-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Shared server utilities and config for The-Greggory-Systems-And-Strategy-firm"
+}

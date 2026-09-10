@@ -2,7 +2,7 @@
  * AUTH ENDPOINTS VALIDATOR MIDDLEWARE
  * Enforces platform-to-table mappings locked in auth_platform_mapping table
  * File: backend/middleware/authEndpointValidator.js
- * 
+ *
  * This middleware:
  * 1. Validates all auth requests against locked mappings
  * 2. Logs all authentication attempts for audit trail
@@ -29,7 +29,7 @@ function hashRequestBody(body = {}) {
     email: safeBody.email,
     has_password: !!safeBody.password,
     has_phone: !!safeBody.phone,
-    fields: Object.keys(safeBody).length
+    fields: Object.keys(safeBody).length,
   };
   const json = JSON.stringify(filtered);
   return crypto.createHash('sha256').update(json).digest('hex');
@@ -44,14 +44,14 @@ async function validateAuthRequest(platform, tableName, endpoint, email, req) {
     const [mapping] = await db.promise().query(
       `SELECT * FROM auth_platform_mapping 
        WHERE platform_name = ? AND table_name = ? AND is_locked = TRUE AND is_active = TRUE`,
-      [platform, tableName]
+      [platform, tableName],
     );
 
     if (mapping.length === 0) {
       return {
         valid: false,
         error: `Auth platform mapping not found or not locked for ${platform}/${tableName}`,
-        errorCode: 'MAPPING_NOT_LOCKED'
+        errorCode: 'MAPPING_NOT_LOCKED',
       };
     }
 
@@ -70,7 +70,7 @@ async function validateAuthRequest(platform, tableName, endpoint, email, req) {
     const [rules] = await db.promise().query(
       `SELECT rule_name, rule_value, enforcement_level FROM auth_validation_rules
        WHERE platform = ? AND rule_type = 'required_field' AND is_active = TRUE`,
-      [platform]
+      [platform],
     );
 
     // Determine the path to inspect for route-type detection. When the request
@@ -100,33 +100,32 @@ async function validateAuthRequest(platform, tableName, endpoint, email, req) {
         violations.push({
           rule: rule.rule_name,
           field: fieldName,
-          level: rule.enforcement_level
+          level: rule.enforcement_level,
         });
       }
     }
 
-    if (violations.some(v => v.level === 'strict')) {
+    if (violations.some((v) => v.level === 'strict')) {
       return {
         valid: false,
-        error: `Required field validation failed: ${violations.map(v => v.field).join(', ')}`,
+        error: `Required field validation failed: ${violations.map((v) => v.field).join(', ')}`,
         errorCode: 'VALIDATION_FAILED',
-        violations
+        violations,
       };
     }
 
     return {
       valid: true,
       mapping: lockedMapping,
-      violations: violations.filter(v => v.level !== 'strict')
+      violations: violations.filter((v) => v.level !== 'strict'),
     };
-
   } catch (error) {
     console.error('[AUTH VALIDATOR] Error validating request:', error);
     return {
       valid: false,
       error: 'Validation engine error',
       errorCode: 'VALIDATION_ERROR',
-      details: error.message
+      details: error.message,
     };
   }
 }
@@ -155,8 +154,8 @@ async function logAuthRequest(requestData) {
         requestData.message,
         requestData.error,
         requestData.executionTime,
-        requestData.success
-      ]
+        requestData.success,
+      ],
     );
   } catch (error) {
     console.error('[AUTH LOGGER] Error logging request:', error);
@@ -173,7 +172,9 @@ function authEndpointValidator(platform, tableName) {
     const requestId = generateRequestId();
     const bodyHash = hashRequestBody(req.body);
 
-    console.log(`[AUTH ENDPOINT] ${requestId} | ${platform}/${tableName} | ${req.method} ${req.path}`);
+    console.log(
+      `[AUTH ENDPOINT] ${requestId} | ${platform}/${tableName} | ${req.method} ${req.path}`,
+    );
 
     // Store validation info in request for logging
     req.authRequest = {
@@ -182,7 +183,7 @@ function authEndpointValidator(platform, tableName) {
       tableName,
       email: req.body?.email,
       bodyHash,
-      startTime
+      startTime,
     };
 
     // Validate the request
@@ -191,12 +192,12 @@ function authEndpointValidator(platform, tableName) {
       tableName,
       req.path,
       req.body?.email,
-      req
+      req,
     );
 
     if (!validation.valid) {
       const executionTime = Date.now() - startTime;
-      
+
       // Log failed validation
       await logAuthRequest({
         requestId,
@@ -211,7 +212,7 @@ function authEndpointValidator(platform, tableName) {
         message: validation.error,
         error: validation.error,
         executionTime,
-        success: false
+        success: false,
       });
 
       console.error(`[AUTH ENDPOINT] ${requestId} VALIDATION FAILED: ${validation.errorCode}`);
@@ -223,7 +224,7 @@ function authEndpointValidator(platform, tableName) {
         platform: platform,
         tableName: tableName,
         errorCode: validation.errorCode,
-        violations: validation.violations || []
+        violations: validation.violations || [],
       });
     }
 
@@ -234,9 +235,9 @@ function authEndpointValidator(platform, tableName) {
 
     // Add error handling wrapper
     const originalJson = res.json.bind(res);
-    res.json = function(data) {
+    res.json = function (data) {
       const executionTime = Date.now() - startTime;
-      
+
       // Log successful response
       logAuthRequest({
         requestId,
@@ -251,8 +252,8 @@ function authEndpointValidator(platform, tableName) {
         message: data?.message || 'OK',
         error: null,
         executionTime,
-        success: res.statusCode >= 200 && res.statusCode < 300
-      }).catch(err => console.error('Logging error:', err));
+        success: res.statusCode >= 200 && res.statusCode < 300,
+      }).catch((err) => console.error('Logging error:', err));
 
       return originalJson(data);
     };
@@ -267,7 +268,7 @@ function authEndpointValidator(platform, tableName) {
  */
 async function validateTableIsolation(platform, allowedTable, queryString) {
   const forbiddenTables = [];
-  
+
   if (platform === 'user') {
     forbiddenTables.push('admin_users', 'developer_users');
   } else if (platform === 'admin') {
@@ -286,7 +287,7 @@ async function validateTableIsolation(platform, allowedTable, queryString) {
   return {
     isolated: violations.length === 0,
     allowed: allowedTable,
-    violations: violations
+    violations: violations,
   };
 }
 
@@ -299,7 +300,7 @@ async function getAuthMappings() {
       `SELECT platform_name, table_name, register_endpoint, login_endpoint, is_locked 
        FROM auth_platform_mapping 
        WHERE is_active = TRUE
-       ORDER BY platform_name`
+       ORDER BY platform_name`,
     );
     return mappings;
   } catch (error) {
@@ -348,5 +349,5 @@ module.exports = {
   getAuthMappings,
   getAuthStats,
   generateRequestId,
-  hashRequestBody
+  hashRequestBody,
 };

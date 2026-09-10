@@ -1,0 +1,1 @@
+scripts/write-fix.cjs

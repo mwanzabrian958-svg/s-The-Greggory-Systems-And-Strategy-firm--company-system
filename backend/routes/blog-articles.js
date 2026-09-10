@@ -1,8 +1,40 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
+const { validate, blogSchema } = require('../validators');
+const cache = require('../middleware/cache');
 
-router.get('/', async (req, res) => {
+/**
+ * @swagger
+ * /api/blog-articles:
+ *   get:
+ *     summary: Get all blog articles
+ *     tags: [Blog]
+ *     responses:
+ *       200:
+ *         description: List of blog articles
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   title:
+ *                     type: string
+ *                   content:
+ *                     type: string
+ *                   author:
+ *                     type: string
+ *                   is_published:
+ *                     type: boolean
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ */
+router.get('/', cache(60), async (req, res) => {
   try {
     const [rows] = await db.promise().query(`
       SELECT *
@@ -17,7 +49,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', cache(60), async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await db.promise().query('SELECT * FROM blog_articles WHERE id = ?', [id]);
@@ -33,9 +65,52 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+/**
+ * @swagger
+ * /api/blog-articles:
+ *   post:
+ *     summary: Create a new blog article
+ *     tags: [Blog]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, content]
+ *             properties:
+ *               title:
+ *                 type: string
+ *               excerpt:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               author:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               is_published:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Article created successfully
+ *       400:
+ *         description: Validation failed
+ */
+router.post('/', validate(blogSchema), async (req, res) => {
   try {
-    const { title, excerpt, content, author, read_time, category, image_url, image_id, icon_class, is_published } = req.body;
+    const {
+      title,
+      excerpt,
+      content,
+      author,
+      read_time,
+      category,
+      image_url,
+      image_id,
+      icon_class,
+      is_published,
+    } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content are required' });
@@ -44,9 +119,22 @@ router.post('/', async (req, res) => {
     const [result] = await db.promise().query(
       `INSERT INTO blog_articles (title, excerpt, content, author, read_time, category, image_url, image_id, icon_class, is_published, published_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, excerpt || null, content, author || null, read_time || null, category || null, image_url || null, image_id || null, icon_class || null, Boolean(is_published), is_published ? new Date() : null]
+      [
+        title,
+        excerpt || null,
+        content,
+        author || null,
+        read_time || null,
+        category || null,
+        image_url || null,
+        image_id || null,
+        icon_class || null,
+        Boolean(is_published),
+        is_published ? new Date() : null,
+      ],
     );
 
+    cache.invalidate('/api/blog-articles');
     res.status(201).json({ message: 'Blog article created successfully', id: result.insertId });
   } catch (error) {
     console.error('Error creating blog article:', error);
@@ -54,22 +142,47 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(blogSchema), async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, excerpt, content, author, read_time, category, image_url, image_id, icon_class, is_published } = req.body;
+    const {
+      title,
+      excerpt,
+      content,
+      author,
+      read_time,
+      category,
+      image_url,
+      image_id,
+      icon_class,
+      is_published,
+    } = req.body;
 
     const [result] = await db.promise().query(
       `UPDATE blog_articles
        SET title = ?, excerpt = ?, content = ?, author = ?, read_time = ?, category = ?, image_url = ?, image_id = ?, icon_class = ?, is_published = ?, published_date = ?, updated_at = NOW()
        WHERE id = ?`,
-      [title, excerpt || null, content, author || null, read_time || null, category || null, image_url || null, image_id || null, icon_class || null, Boolean(is_published), is_published ? new Date() : null, id]
+      [
+        title,
+        excerpt || null,
+        content,
+        author || null,
+        read_time || null,
+        category || null,
+        image_url || null,
+        image_id || null,
+        icon_class || null,
+        Boolean(is_published),
+        is_published ? new Date() : null,
+        id,
+      ],
     );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Blog article not found' });
     }
 
+    cache.invalidate('/api/blog-articles');
     res.json({ message: 'Blog article updated successfully' });
   } catch (error) {
     console.error('Error updating blog article:', error);
@@ -86,6 +199,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Blog article not found' });
     }
 
+    cache.invalidate('/api/blog-articles');
     res.json({ message: 'Blog article deleted successfully' });
   } catch (error) {
     console.error('Error deleting blog article:', error);
