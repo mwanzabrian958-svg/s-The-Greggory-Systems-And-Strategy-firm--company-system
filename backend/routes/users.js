@@ -15,6 +15,7 @@ const authController = require('../controllers/authController');
 const { authEndpointValidator } = require('../middleware/authEndpointValidator');
 const { createNotification } = require('../utils/notificationHelper');
 const { validate, loginSchema, registerSchema } = require('../validators');
+const { sendMail } = require('../services/emailService');
 
 const authenticateUser = (req, res, next) => {
   const authHeader = req.header('authorization') || req.header('Authorization');
@@ -578,6 +579,79 @@ router.get('/my-reports/:id/download', authenticateUser, async (req, res) => {
   } catch (error) {
     console.error('[CLIENT REPORTS] download error:', error.code || '', error.message);
     res.status(404).json({ success: false, message: 'Report not available' });
+  }
+});
+
+// Password Reset Request — generates a reset token and sends an email
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ success: false, message: 'Email is required' });
+  }
+
+  try {
+    const [users] = await db
+      .promise()
+      .query(
+        'SELECT id, email, first_name, last_name FROM users WHERE email = ? AND deleted_at IS NULL',
+        [email],
+      );
+
+    // Always return success to prevent email enumeration
+    if (users.length === 0) {
+      return res.json({
+        success: true,
+        message: 'If the email exists, a password reset link has been sent.',
+      });
+    }
+
+    const user = users[0];
+    const resetToken = require('crypto').randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await db
+      .promise()
+      .query('UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?', [
+        resetToken,
+        expiresAt,
+        user.id,
+      ]);
+
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    const subject = 'Password Reset Request — The Greggory Systems';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <h1 style="color: #002D62;">Password Reset Request</h1>
+        <p>Hello ${user.first_name} ${user.last_name},</p>
+        <p>We received a request to reset your password for your account (${user.email}).</p>
+        <p>Click the button below to set a new password:</p>
+        <p style="margin: 24px 0;">
+          <a href="${resetLink}" style="background: #002D62; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+            Reset Password
+          </a>
+        </p>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #666; font-size: 14px;">${resetLink}</p>
+        <p>This link expires in 24 hours.</p>
+        <p style="font-size: 12px; color: #999; margin-top: 24px;">
+          If you did not request this reset, please ignore this email.
+        </p>
+        <hr style="border: 1px solid #eee; margin-top: 24px;" />
+        <p style="font-size: 12px; color: #999;">
+          The Greggory Systems &amp; Strategy Firm
+        </p>
+      </div>
+    `;
+
+    await sendMail({ to: user.email, subject, html });
+
+    res.json({
+      success: true,
+      message: 'If the email exists, a password reset link has been sent.',
+    });
+  } catch (error) {
+    console.error('Error in forgot-password:', error);
+    res.status(500).json({ success: false, message: 'Failed to process request' });
   }
 });
 

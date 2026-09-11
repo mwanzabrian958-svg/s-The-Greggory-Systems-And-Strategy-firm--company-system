@@ -801,6 +801,81 @@ router.get('/users/:id', requireAdminSession, async (req, res) => {
 });
 
 // =============================================
+// GET DASHBOARD STATS
+// =============================================
+router.get('/dashboard-stats', async (req, res) => {
+  try {
+    const [
+      totalUsers,
+      activeUsers,
+      totalProjects,
+      activeProjects,
+      pendingTasks,
+      totalInvoices,
+      unpaidInvoices,
+      recentActivity,
+    ] = await Promise.all([
+      db.promise().query('SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL'),
+      db
+        .promise()
+        .query('SELECT COUNT(*) as count FROM users WHERE is_active = true AND deleted_at IS NULL'),
+      db.promise().query('SELECT COUNT(*) as count FROM user_projects WHERE deleted_at IS NULL'),
+      db
+        .promise()
+        .query(
+          'SELECT COUNT(*) as count FROM user_projects WHERE status NOT IN ("completed", "cancelled") AND deleted_at IS NULL',
+        ),
+      db.promise().query('SELECT COUNT(*) as count FROM notifications WHERE status = "unread"'),
+      db.promise().query('SELECT COUNT(*) as count FROM project_invoices WHERE deleted_at IS NULL'),
+      db
+        .promise()
+        .query(
+          'SELECT COUNT(*) as count FROM project_invoices WHERE status = "unpaid" AND deleted_at IS NULL',
+        ),
+      db.promise().query(
+        `SELECT aal.id, aal.action_type, aal.action_description, aal.created_at,
+                  u.display_name, u.email as admin_email
+           FROM admin_activity_logs aal
+           LEFT JOIN users u ON aal.admin_user_id = u.id
+           ORDER BY aal.created_at DESC
+           LIMIT 10`,
+      ),
+    ]);
+
+    const formatActivity = (rows) =>
+      rows.map((row) => ({
+        id: row.id,
+        action: row.action_type,
+        description: row.action_description,
+        admin_name: row.display_name || 'System',
+        admin_email: row.admin_email || null,
+        timestamp: row.created_at,
+      }));
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers: totalUsers[0].count,
+        activeUsers: activeUsers[0].count,
+        totalProjects: totalProjects[0].count,
+        activeProjects: activeProjects[0].count,
+        pendingTasks: pendingTasks[0].count,
+        totalInvoices: totalInvoices[0].count,
+        unpaidInvoices: unpaidInvoices[0].count,
+      },
+      recentActivity: formatActivity(recentActivity),
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard stats',
+      error: error.message,
+    });
+  }
+});
+
+// =============================================
 // GET ACTIVITY LOGS
 // =============================================
 router.get('/activity-logs', async (req, res) => {
@@ -1275,7 +1350,7 @@ router.get('/assigned-tasks', async (req, res) => {
 });
 
 // =============================================
-// GET CRM TELEMETRY
+// CRM TELEMETRY
 // =============================================
 router.get('/crm-telemetry', async (req, res) => {
   try {
@@ -1453,206 +1528,61 @@ router.post('/relay-alert', async (req, res) => {
 });
 
 // =============================================
-// CRM CONTACTS
 // =============================================
-router.get('/crm/contacts', async (req, res) => {
+// PROJECT REPORTS (POSTING AREA)
+// =============================================
+router.get('/projects/all', async (req, res) => {
   try {
-    const [contacts] = await db
-      .promise()
-      .query('SELECT * FROM crm_contacts WHERE deleted_at IS NULL ORDER BY created_at DESC');
-    res.json({ success: true, contacts });
-  } catch (error) {
-    console.error('Error fetching CRM contacts:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch CRM contacts' });
-  }
-});
-
-router.post('/crm/contacts', async (req, res) => {
-  try {
-    const { name, email, phone, company, status, notes } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
-    const [result] = await db
+    const [projects] = await db
       .promise()
       .query(
-        'INSERT INTO crm_contacts (name, email, phone, company, status, notes) VALUES (?, ?, ?, ?, ?, ?)',
-        [name, email || null, phone || null, company || null, status || 'lead', notes || null],
+        'SELECT id, project_name FROM user_projects WHERE deleted_at IS NULL ORDER BY project_name ASC',
       );
-    res.status(201).json({ success: true, message: 'Contact created', id: result.insertId });
+    res.json({ success: true, projects });
   } catch (error) {
-    console.error('Error creating CRM contact:', error);
-    res.status(500).json({ success: false, message: 'Failed to create contact' });
+    res.status(500).json({ success: false, message: 'Failed to fetch projects' });
   }
 });
 
-router.put('/crm/contacts/:id', async (req, res) => {
+router.post('/reports', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, email, phone, company, status, notes } = req.body;
-    const [result] = await db
-      .promise()
-      .query(
-        'UPDATE crm_contacts SET name = COALESCE(?, name), email = COALESCE(?, email), phone = COALESCE(?, phone), company = COALESCE(?, company), status = COALESCE(?, status), notes = COALESCE(?, notes) WHERE id = ? AND deleted_at IS NULL',
-        [name, email, phone, company, status, notes, id],
-      );
-    if (result.affectedRows === 0)
-      return res.status(404).json({ success: false, message: 'Contact not found' });
-    res.json({ success: true, message: 'Contact updated' });
-  } catch (error) {
-    console.error('Error updating CRM contact:', error);
-    res.status(500).json({ success: false, message: 'Failed to update contact' });
-  }
-});
+    const { project_id, title, summary, file_data, file_type, file_name, file_size, admin_id } =
+      req.body;
 
-router.delete('/crm/contacts/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [result] = await db
-      .promise()
-      .query('UPDATE crm_contacts SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL', [
-        id,
-      ]);
-    if (result.affectedRows === 0)
-      return res.status(404).json({ success: false, message: 'Contact not found' });
-    res.json({ success: true, message: 'Contact deleted' });
-  } catch (error) {
-    console.error('Error deleting CRM contact:', error);
-    res.status(500).json({ success: false, message: 'Failed to delete contact' });
-  }
-});
-
-// =============================================
-// ADMIN SETTINGS
-// =============================================
-router.get('/settings', async (req, res) => {
-  try {
-    const [settings] = await db
-      .promise()
-      .query('SELECT * FROM admin_settings ORDER BY setting_group, setting_key');
-    const settingsMap = {};
-    settings.forEach((s) => {
-      settingsMap[s.setting_key] = s.setting_value;
-    });
-    res.json({ success: true, settings: settingsMap, raw: settings });
-  } catch (error) {
-    console.error('Error fetching settings:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch settings' });
-  }
-});
-
-router.put('/settings', async (req, res) => {
-  try {
-    const updates = req.body;
-    if (!updates || typeof updates !== 'object') {
-      return res.status(400).json({ success: false, message: 'Invalid settings data' });
+    if (!project_id || !title || !file_data) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Project, Title, and File are required' });
     }
-    const keys = Object.keys(updates);
-    for (const key of keys) {
-      await db
-        .promise()
-        .query(
-          'INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
-          [key, updates[key], updates[key]],
-        );
-    }
-    res.json({ success: true, message: 'Settings updated', updated: keys });
-  } catch (error) {
-    console.error('Error updating settings:', error);
-    res.status(500).json({ success: false, message: 'Failed to update settings' });
-  }
-});
 
-// =============================================
-// CRM TELEMETRY (for CRM.jsx)
-// =============================================
-router.get('/crm-telemetry', async (req, res) => {
-  try {
-    const [contacts] = await db
-      .promise()
-      .query('SELECT * FROM crm_contacts WHERE deleted_at IS NULL ORDER BY created_at DESC');
-    res.json({
-      success: true,
-      clients: contacts,
-      opportunities: [],
-      pipeline: [
-        {
-          stage: 'Leads',
-          count: contacts.filter((c) => c.status === 'lead').length,
-          color: 'bg-blue-500',
-        },
-        {
-          stage: 'Active',
-          count: contacts.filter((c) => c.status === 'active').length,
-          color: 'bg-green-500',
-        },
+    const buffer = Buffer.from(file_data.split(',')[1] || file_data, 'base64');
+
+    const [result] = await db.promise().query(
+      `
+      INSERT INTO project_reports (
+        project_id, title, summary, file_data, file_type, file_size,
+        report_date, status, created_by, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, NOW(), 'final', ?, NOW())
+    `,
+      [
+        project_id,
+        title,
+        summary,
+        buffer,
+        file_type || 'application/pdf',
+        file_size || 0,
+        admin_id || 1,
       ],
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Report published successfully to project node',
+      reportId: result.insertId,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'CRM failed' });
-  }
-});
-
-// =============================================
-// NODE SETTINGS (for Settings.jsx)
-// =============================================
-router.get('/node-settings', async (req, res) => {
-  try {
-    const [settings] = await db.promise().query('SELECT * FROM admin_settings');
-    const m = {};
-    settings.forEach((s) => {
-      m[s.setting_key] = s.setting_value;
-    });
-    res.json({ success: true, settings: m, system: { status: 'operational', uptime: '99.9%' } });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed' });
-  }
-});
-
-// =============================================
-// LEDGER (for Financial.jsx)
-// =============================================
-router.get('/ledger', async (req, res) => {
-  try {
-    const [entries] = await db
-      .promise()
-      .query(
-        'SELECT * FROM accounting_entries WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 100',
-      );
-    res.json({ success: true, entries });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed' });
-  }
-});
-
-// =============================================
-// M-PESA TRANSACTIONS (for Financial.jsx)
-// =============================================
-router.get('/mpesa/transactions', async (req, res) => {
-  try {
-    const [rows] = await db
-      .promise()
-      .query('SELECT * FROM mpesa_transactions ORDER BY created_at DESC LIMIT 50');
-    res.json({ success: true, transactions: rows });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed' });
-  }
-});
-
-// =============================================
-// TEAM MEMBERS (for Team.jsx)
-// =============================================
-router.post('/team', async (req, res) => {
-  try {
-    const { name, role, department, description, email } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name required' });
-    const [r] = await db
-      .promise()
-      .query(
-        'INSERT INTO team_members (name, role, department, description, email, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
-        [name, role || 'member', department || null, description || null, email || null],
-      );
-    res.status(201).json({ success: true, id: r.insertId });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed' });
+    console.error('Report Publication Error:', error);
+    res.status(500).json({ success: false, message: 'Internal server failure during publication' });
   }
 });
 

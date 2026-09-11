@@ -8,6 +8,39 @@ const { success, error } = require('../utils/responseHelper');
 /**
  * Trigger STK Push
  * POST /api/mpesa/stkpush
+ *
+ * @swagger
+ * /api/mpesa/stkpush:
+ *   post:
+ *     summary: Initiate an M-Pesa STK Push payment
+ *     tags: [M-Pesa]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phone_number, amount]
+ *             properties:
+ *               phone_number:
+ *                 type: string
+ *                 description: Phone number in 2547XXXXXXXX format
+ *               amount:
+ *                 type: number
+ *                 description: Transaction amount in KES
+ *               account_reference:
+ *                 type: string
+ *                 description: Account reference (default: GSS-FIRM)
+ *               transaction_desc:
+ *                 type: string
+ *                 description: Transaction description (default: Consultancy Payment)
+ *     responses:
+ *       200:
+ *         description: STK Push initiated successfully
+ *       400:
+ *         description: Validation failed
+ *       500:
+ *         description: M-Pesa STK Push failed
  */
 router.post('/stkpush', validate(mpesaStkSchema), async (req, res) => {
   try {
@@ -72,6 +105,49 @@ router.post('/stkpush', validate(mpesaStkSchema), async (req, res) => {
 /**
  * M-Pesa Callback (Safaricom calls this)
  * POST /api/mpesa/callback
+ *
+ * @swagger
+ * /api/mpesa/callback:
+ *   post:
+ *     summary: M-Pesa STK Push callback (Safaricom)
+ *     tags: [M-Pesa]
+ *     description: Called by Safaricom's M-Pesa API to notify the result of an STK Push transaction.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               Body:
+ *                 type: object
+ *                 properties:
+ *                   stkCallback:
+ *                     type: object
+ *                     properties:
+ *                       CheckoutRequestID:
+ *                         type: string
+ *                       ResultCode:
+ *                         type: integer
+ *                       ResultDesc:
+ *                         type: string
+ *                       CallbackMetadata:
+ *                         type: object
+ *                         properties:
+ *                           Item:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 Name:
+ *                                   type: string
+ *                                 Value:
+ *                                   type: string
+ *     responses:
+ *       200:
+ *         description: Callback processed successfully
+ *       500:
+ *         description: Internal server error
  */
 router.post('/callback', async (req, res) => {
   try {
@@ -144,6 +220,35 @@ router.post('/callback', async (req, res) => {
 /**
  * Check Transaction Status
  * GET /api/mpesa/status/:checkoutRequestId
+ *
+ * @swagger
+ * /api/mpesa/status/{checkoutRequestId}:
+ *   get:
+ *     summary: Check the status of an M-Pesa transaction
+ *     tags: [M-Pesa]
+ *     parameters:
+ *       - in: path
+ *         name: checkoutRequestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The CheckoutRequestID from the STK Push
+ *     responses:
+ *       200:
+ *         description: Transaction status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 result_desc:
+ *                   type: string
+ *                 mpesa_receipt:
+ *                   type: string
+ *       404:
+ *         description: Transaction not found
  */
 router.get('/status/:checkoutRequestId', async (req, res) => {
   try {

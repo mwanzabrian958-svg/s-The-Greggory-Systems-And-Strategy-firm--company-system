@@ -5,6 +5,41 @@ const { createNotification } = require('../utils/notificationHelper');
 const { validate, projectSchema } = require('../validators');
 const { success, error } = require('../utils/responseHelper');
 
+/**
+ * @swagger
+ * /api/user-projects:
+ *   get:
+ *     summary: Get all user projects
+ *     tags: [Projects]
+ *     responses:
+ *       200:
+ *         description: List of user projects
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       project_name:
+ *                         type: string
+ *                       project_description:
+ *                         type: string
+ *                       project_type:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       priority:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ */
 router.get('/', async (req, res) => {
   try {
     const [rows] = await db.promise().query(`
@@ -39,6 +74,59 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/user-projects:
+ *   post:
+ *     summary: Create a new user project
+ *     tags: [Projects]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [user_id, project_name]
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               project_name:
+ *                 type: string
+ *               project_description:
+ *                 type: string
+ *               project_type:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *               priority:
+ *                 type: string
+ *               start_date:
+ *                 type: string
+ *                 format: date
+ *               end_date:
+ *                 type: string
+ *                 format: date
+ *               estimated_budget:
+ *                 type: number
+ *               actual_budget:
+ *                 type: number
+ *               client_name:
+ *                 type: string
+ *               client_email:
+ *                 type: string
+ *                 format: email
+ *               client_phone:
+ *                 type: string
+ *               progress_percentage:
+ *                 type: number
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Project created successfully
+ *       400:
+ *         description: Validation failed
+ */
 router.post('/', validate(projectSchema), async (req, res) => {
   try {
     const {
@@ -117,6 +205,65 @@ router.post('/', validate(projectSchema), async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/user-projects/{id}:
+ *   put:
+ *     summary: Update a user project
+ *     tags: [Projects]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Project ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               project_name:
+ *                 type: string
+ *               project_description:
+ *                 type: string
+ *               project_type:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *               priority:
+ *                 type: string
+ *               start_date:
+ *                 type: string
+ *                 format: date
+ *               end_date:
+ *                 type: string
+ *                 format: date
+ *               estimated_budget:
+ *                 type: number
+ *               actual_budget:
+ *                 type: number
+ *               client_name:
+ *                 type: string
+ *               client_email:
+ *                 type: string
+ *                 format: email
+ *               client_phone:
+ *                 type: string
+ *               progress_percentage:
+ *                 type: number
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Project updated successfully
+ *       400:
+ *         description: Validation failed
+ *       404:
+ *         description: Project not found
+ */
 router.put('/:id', validate(projectSchema), async (req, res) => {
   try {
     const { id } = req.params;

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const requireAdmin = require('../middleware/auth');
+const { success, error } = require('../utils/responseHelper');
 
 // Helper: insert image from base64 string into images.data
 const insertImageFromBase64 = (fileName, contentType, dataBase64, callback) => {
@@ -35,7 +36,7 @@ router.post('/profile', (req, res) => {
   const { dataBase64, contentType, fileName } = req.body || {};
 
   if (!dataBase64) {
-    return res.status(400).json({ error: 'Missing image data' });
+    return error(res, 'Missing image data', 400);
   }
 
   insertImageFromBase64(
@@ -45,10 +46,10 @@ router.post('/profile', (req, res) => {
     (err, imageId) => {
       if (err) {
         console.error('Error inserting profile image:', err);
-        return res.status(500).json({ error: 'Failed to save profile image' });
+        return error(res, 'Failed to save profile image', 500);
       }
 
-      res.status(201).json({ image_id: imageId });
+      return success(res, { image_id: imageId }, 201);
     },
   );
 });
@@ -60,14 +61,14 @@ router.delete('/:id', requireAdmin, (req, res) => {
   db.query('DELETE FROM images WHERE id = ?', [id], (err, result) => {
     if (err) {
       console.error('Error deleting image:', err);
-      return res.status(500).json({ error: 'Failed to delete image' });
+      return error(res, 'Failed to delete image', 500);
     }
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Image not found' });
+      return error(res, 'Image not found', 404);
     }
 
-    res.json({ message: 'Image deleted successfully' });
+    return success(res, { message: 'Image deleted successfully' });
   });
 });
 
@@ -78,11 +79,11 @@ router.get('/:id', (req, res) => {
   db.query('SELECT content_type, data FROM images WHERE id = ?', [id], (err, results) => {
     if (err) {
       console.error('Error fetching image:', err);
-      return res.status(500).json({ error: 'Failed to fetch image' });
+      return error(res, 'Failed to fetch image', 500);
     }
 
     if (!results || results.length === 0) {
-      return res.status(404).json({ error: 'Image not found' });
+      return error(res, 'Image not found', 404);
     }
 
     const image = results[0];

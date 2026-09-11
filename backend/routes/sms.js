@@ -36,11 +36,63 @@ const messageSchema = z.object({
 });
 
 // Health check
+/**
+ * @swagger
+ * /api/sms/test:
+ *   get:
+ *     summary: Health check — verify SMS router is loaded
+ *     tags: [SMS]
+ *     responses:
+ *       200:
+ *         description: SMS router is working
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 company_phone:
+ *                   type: string
+ */
 router.get('/test', (req, res) => {
   success(res, { message: 'SMS router is working', company_phone: COMPANY_PHONE_NUMBER });
 });
 
 // Send SMS FROM user TO company phone number
+/**
+ * @swagger
+ * /api/sms/send:
+ *   post:
+ *     summary: Send an SMS from the authenticated user to the company phone
+ *     tags: [SMS]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [message]
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 1600
+ *                 description: Message content (max 1600 characters)
+ *     responses:
+ *       200:
+ *         description: Message sent successfully
+ *       400:
+ *         description: Validation failed
+ *       401:
+ *         description: Authentication required
+ *       404:
+ *         description: User not found or no phone number registered
+ *       500:
+ *         description: Failed to send message
+ */
 router.post('/send', authenticateUser, validate(messageSchema), async (req, res) => {
   try {
     const userId = req.userId;
@@ -109,6 +161,38 @@ router.post('/send', authenticateUser, validate(messageSchema), async (req, res)
 });
 
 // Send SMS to multiple users (bulk)
+/**
+ * @swagger
+ * /api/sms/send-bulk:
+ *   post:
+ *     summary: Send a bulk SMS to multiple users
+ *     tags: [SMS]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [user_ids, message]
+ *             properties:
+ *               user_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: Array of user IDs to send SMS to
+ *               message:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 1600
+ *                 description: Message content
+ *     responses:
+ *       200:
+ *         description: Bulk SMS sent successfully
+ *       400:
+ *         description: Validation failed
+ *       404:
+ *         description: No valid users found with phone numbers
+ */
 router.post('/send-bulk', validate(smsBulkSchema), async (req, res) => {
   try {
     const { user_ids, message } = req.body;
@@ -154,6 +238,33 @@ router.post('/send-bulk', validate(smsBulkSchema), async (req, res) => {
 });
 
 // Send SMS to all active users with phone numbers
+/**
+ * @swagger
+ * /api/sms/send-all:
+ *   post:
+ *     summary: Send an SMS to all active users with phone numbers
+ *     tags: [SMS]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [message]
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 1600
+ *                 description: Message content
+ *     responses:
+ *       200:
+ *         description: Bulk SMS sent to all active users successfully
+ *       400:
+ *         description: Validation failed
+ *       404:
+ *         description: No active users found with phone numbers
+ */
 router.post('/send-all', validate(messageSchema), async (req, res) => {
   try {
     const { message } = req.body;

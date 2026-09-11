@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 // Fail fast in production if auth secrets are missing — prevents any chance of
@@ -18,8 +19,31 @@ const db = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Security middleware
-app.use(helmet());
+// Security middleware — helmet with explicit CSP
+// The CSP allows:
+//  - Scripts from self + localhost (for Vite HMR in dev)
+//  - Styles from self + inline (needed for some UI libs)
+//  - Images from self + data URIs (profile photos stored as base64)
+//  -fonts from self + Google Fonts
+//  - connects to self (fetch/XHR)
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'http://localhost:', 'https://localhost:'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'http:', 'https:'],
+        fontSrc: ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
+        connectSrc: ["'self'", 'http://localhost:', 'https://localhost:'],
+        frameSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }),
+);
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -91,9 +115,37 @@ const authLimiter = rateLimit({
 app.use('/api/users/login', authLimiter);
 app.use('/api/admin-verification/authenticate-enhanced', authLimiter);
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Rate limiting — per-user (based on JWT subject)
+// Applies after auth middleware decodes the token. Falls back to IP for
+// unauthenticated requests. Covers all /api/users/* routes.
+const userLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Try to extract user ID from the decoded auth header
+    const authHeader = req.headers.authorization || req.headers.Authorization || '';
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (match) {
+      try {
+        const token = match[1].trim();
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.userId || decoded.id || decoded.user?.id;
+        if (userId) return `user:${userId}`;
+      } catch (_) {
+        // Invalid/expired token — fall through to IP
+      }
+    }
+    return `ip:${req.ip}`;
+  },
+  message: { success: false, message: 'Too many requests per user, please try again later.' },
+});
+app.use('/api/users', userLimiter);
+
+// Body parsing middleware — size-limited to prevent payload attacks
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // Handle preflight OPTIONS requests
 // app.options('*', cors()); // Removed - cors is already applied via app.use(cors())
@@ -163,6 +215,8 @@ const contactFormRoutes = require('./routes/contact-forms');
 const blogArticleRoutes = require('./routes/blog-articles');
 const userProjectRoutes = require('./routes/user-projects');
 const adminRoutes = require('./routes/admin');
+const adminCrmRoutes = require('./routes/admin-crm');
+const adminSettingsRoutes = require('./routes/admin-settings');
 const adminVerificationRoutes = require('./routes/admin-verification');
 const developerVerificationRoutes = require('./routes/developer-verification');
 const easyAdminRoutes = require('./routes/easy-admin');
@@ -179,6 +233,8 @@ app.use('/api/contact-forms', contactFormRoutes);
 app.use('/api/blog-articles', blogArticleRoutes);
 app.use('/api/user-projects', userProjectRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/crm', adminCrmRoutes);
+app.use('/api/admin', adminSettingsRoutes);
 app.use('/api/admin-verification', adminVerificationRoutes);
 app.use('/api/developer-verification', developerVerificationRoutes);
 app.use('/api/easy-admin', easyAdminRoutes);

@@ -6,6 +6,47 @@ const { validate, contentSchema } = require('../validators');
 const { success, error } = require('../utils/responseHelper');
 
 // GET ALL CONTENT
+/**
+ * @swagger
+ * /api/content:
+ *   get:
+ *     summary: Get all content items
+ *     tags: [Content]
+ *     responses:
+ *       200:
+ *         description: List of content items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 content:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       title:
+ *                         type: string
+ *                       body:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       author:
+ *                         type: string
+ *                       category:
+ *                         type: string
+ *                       tags:
+ *                         type: string
+ *                       featured_image_url:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ */
 router.get('/', cache(60), async (req, res) => {
   try {
     const [rows] = await db.promise().query(`
@@ -22,6 +63,39 @@ router.get('/', cache(60), async (req, res) => {
 });
 
 // GET SINGLE CONTENT
+/**
+ * @swagger
+ * /api/content/{id}:
+ *   get:
+ *     summary: Get a single content item by ID
+ *     tags: [Content]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Content ID
+ *     responses:
+ *       200:
+ *         description: Content item retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 content:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     title:
+ *                       type: string
+ *                     body:
+ *                       type: string
+ *       404:
+ *         description: Content not found
+ */
 router.get('/:id', cache(60), async (req, res) => {
   try {
     const { id } = req.params;
@@ -41,6 +115,47 @@ router.get('/:id', cache(60), async (req, res) => {
 });
 
 // CREATE CONTENT
+/**
+ * @swagger
+ * /api/content:
+ *   post:
+ *     summary: Create a new content item
+ *     tags: [Content]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, body]
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 255
+ *               body:
+ *                 type: string
+ *                 minLength: 1
+ *               type:
+ *                 type: string
+ *                 enum: [page, post, article, faq]
+ *               status:
+ *                 type: string
+ *                 enum: [draft, published, archived]
+ *               author:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               tags:
+ *                 type: string
+ *               featured_image_url:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Content created successfully
+ *       400:
+ *         description: Validation failed
+ */
 router.post('/', validate(contentSchema), async (req, res) => {
   try {
     const { title, body, type, status, author, category, tags, featured_image_url } = req.body;
@@ -69,6 +184,55 @@ router.post('/', validate(contentSchema), async (req, res) => {
 });
 
 // UPDATE CONTENT
+/**
+ * @swagger
+ * /api/content/{id}:
+ *   put:
+ *     summary: Update a content item
+ *     tags: [Content]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Content ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 255
+ *               body:
+ *                 type: string
+ *                 minLength: 1
+ *               type:
+ *                 type: string
+ *                 enum: [page, post, article, faq]
+ *               status:
+ *                 type: string
+ *                 enum: [draft, published, archived]
+ *               author:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               tags:
+ *                 type: string
+ *               featured_image_url:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Content updated successfully
+ *       400:
+ *         description: Validation failed
+ *       404:
+ *         description: Content not found
+ */
 router.put('/:id', validate(contentSchema), async (req, res) => {
   try {
     const { id } = req.params;
