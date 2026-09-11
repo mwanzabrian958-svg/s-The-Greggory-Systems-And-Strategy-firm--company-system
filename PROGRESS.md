@@ -80,7 +80,7 @@
 
 - [x] **Sprint 5 Gates** — install:0, format:0, test:0 (**31 passed**, 7 DB-skipped), lint:0 (0 errors), build:0 (2231 modules)
 
-- [ ] **S5.7 Push to GitHub** — ⏳ Pending (secret-scan unblock still required on first push)
+- [x] **S5.7 Push to GitHub** — ✅ Pushed `7a86235` to `origin/main` after purging the leaked Aiven password from history (rebase-edit of `7b33aa3` → force-with-lease). Secret never reached GitHub; password rotation still recommended as good hygiene. CI (lint → test → build) triggered on push.
 
 ---
 
