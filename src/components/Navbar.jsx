@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Menu, X, LogIn, ChevronDown, User } from 'lucide-react'
+import { Menu, X, LogIn, ChevronDown, User, Globe } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useLanguageSwitcher } from '../hooks/useLanguageSwitcher'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import companies from '../data/companies'
 
 const Navbar = () => {
@@ -13,6 +15,9 @@ const Navbar = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { isAuthenticated, logout, user } = useAuth()
+  const { currentLang, changeLanguage, languages } = useLanguageSwitcher()
+  const isOnline = useOnlineStatus()
+  const [langOpen, setLangOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -141,6 +146,48 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center space-x-3 sm:space-x-4 bg-slate-100 dark:bg-white/5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 backdrop-blur-md min-w-0">
+            <span
+              className={`hidden md:inline-flex items-center gap-1.5 text-[9px] font-black tracking-widest uppercase ${
+                isOnline ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
+              }`}
+              title={isOnline ? 'Online' : 'Offline'}
+            >
+              <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+              {isOnline ? 'ONLINE' : 'OFFLINE'}
+            </span>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setLangOpen(!langOpen)}
+                className="flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-blue-700 p-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors"
+                aria-label="Change language"
+                aria-expanded={langOpen}
+              >
+                <Globe size={16} />
+                <span className="text-xs font-black uppercase">{currentLang}</span>
+              </button>
+              {langOpen && (
+                <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl py-2 z-50">
+                  {languages.map((lang) => (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      onClick={() => {
+                        changeLanguage(lang.code)
+                        setLangOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
+                    >
+                      <span>{lang.flag}</span>
+                      <span>{lang.name}</span>
+                      {currentLang === lang.code && <span className="ml-auto text-blue-600">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {isAuthenticated && user ? (
               <>
                 {profilePhotoUrl ? (
@@ -206,6 +253,22 @@ const Navbar = () => {
             {isAuthenticated && (
                <button onClick={() => { setIsOpen(false); handleLogout() }} className="w-full bg-white/10 text-white px-4 py-2 rounded-xl text-sm font-bold border border-white/10">Logout</button>
             )}
+            <div className="flex items-center gap-2 pt-2">
+              {languages.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => { changeLanguage(lang.code); setIsOpen(false) }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                    currentLang === lang.code
+                      ? 'bg-blue-700 text-white border-blue-700'
+                      : 'text-slate-300 border-white/10 hover:bg-white/5'
+                  }`}
+                >
+                  {lang.flag} {lang.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
