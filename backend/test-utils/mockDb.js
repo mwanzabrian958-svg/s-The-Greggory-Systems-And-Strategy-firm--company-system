@@ -17,15 +17,16 @@ function createMockDb() {
     },
   };
 
-  const store = db.store;
-  const knownTables = db.knownTables;
+  // NOTE: inner functions below use db.store / db.knownTables directly
+  // (NOT local copies) so that reassignment via __clear() or db.store = {}
+  // is always reflected by already-created promise/query handles.
 
   function selectFrom(sql, params) {
     const tblMatch = sql.match(/FROM\s+`?(\w+)`?\s/gi);
     if (!tblMatch) return [[]];
     const lastFrom = tblMatch[tblMatch.length - 1];
     const tableName = lastFrom.replace(/^FROM\s+`?(\w+)`?/i, '$1').trim();
-    let rows = store[tableName] || [];
+    let rows = db.store[tableName] || [];
     const lower = sql.toLowerCase();
     const whereIdx = lower.indexOf('where');
     const orderIdx = lower.indexOf('order by');
@@ -115,7 +116,7 @@ function createMockDb() {
     const colListMatch = sql.match(/`((\w+(, \w+)*))`\s/);
     let columns = [];
     if (colListMatch) columns = colListMatch[1].split(', ');
-    const existing = store[tableName] || [];
+    const existing = db.store[tableName] || [];
     const idCol = 'id';
     let targetRow = null;
     if (columns.includes(idCol) && params.length === columns.length) {
@@ -143,8 +144,8 @@ function createMockDb() {
     newRow.created_at = new Date();
     newRow.updated_at = new Date();
     existing.push(newRow);
-    store[tableName] = existing;
-    if (!knownTables.includes(tableName)) knownTables.push(tableName);
+    db.store[tableName] = existing;
+    if (!db.knownTables.includes(tableName)) db.knownTables.push(tableName);
     return { affectedRows: 1, insertId: newRow[idCol] };
   }
 
@@ -152,13 +153,13 @@ function createMockDb() {
     const tblMatch = sql.match(/FROM\s+`?(\w+)`?\s/);
     if (!tblMatch) return { affectedRows: 0, insertId: 0 };
     const tableName = tblMatch[1];
-    const existing = store[tableName] || [];
+    const existing = db.store[tableName] || [];
     if (params && params.length) {
       const idVal = params[0];
       const idx = existing.findIndex((r) => String(r.id) === String(idVal));
       if (idx !== -1) {
         existing.splice(idx, 1);
-        store[tableName] = existing;
+        db.store[tableName] = existing;
         return { affectedRows: 1, insertId: idVal };
       }
     }
@@ -169,7 +170,7 @@ function createMockDb() {
     const tblMatch = sql.match(/UPDATE\s+`?(\w+)`?\s/);
     if (!tblMatch) return { affectedRows: 0, insertId: 0 };
     const tableName = tblMatch[1];
-    const existing = store[tableName] || [];
+    const existing = db.store[tableName] || [];
     const whereIdx = sql.toLowerCase().indexOf('where');
     if (whereIdx === -1) return { affectedRows: 0, insertId: 0 };
     const whereClause = sql.slice(whereIdx + 5).trim();
