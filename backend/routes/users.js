@@ -10,11 +10,12 @@ const router = express.Router();
 const db = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const requireAdmin = require('../middleware/auth');
 const authController = require('../controllers/authController');
 const { authEndpointValidator } = require('../middleware/authEndpointValidator');
 const { createNotification } = require('../utils/notificationHelper');
-const { validate, loginSchema, registerSchema } = require('../validators');
+const { validate, loginSchema, registerSchema, resetPasswordSchema } = require('../validators');
 const { sendMail } = require('../services/emailService');
 
 const authenticateUser = (req, res, next) => {
@@ -606,13 +607,16 @@ router.post('/forgot-password', async (req, res) => {
     }
 
     const user = users[0];
-    const resetToken = require('crypto').randomBytes(32).toString('hex');
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    // Store only the SHA-256 hash of the token — the raw token lives solely in
+    // the emailed link, so a DB leak cannot be used to reset any password.
+    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     await db
       .promise()
       .query('UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?', [
-        resetToken,
+        tokenHash,
         expiresAt,
         user.id,
       ]);
@@ -652,6 +656,77 @@ router.post('/forgot-password', async (req, res) => {
   } catch (error) {
     console.error('Error in forgot-password:', error);
     res.status(500).json({ success: false, message: 'Failed to process request' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/reset-password:
+ *   post:
+ *     summary: Confirm a password reset with a token from the email link
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, password]
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Raw reset token from the emailed link
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Validation failed or invalid/expired token
+ */
+// Password Reset Confirmation — consumes the token issued by forgot-password.
+// The DB stores a SHA-256 hash of the token, so the raw token from the link is
+// hashed here before lookup. Single-use: token columns are cleared on success.
+router.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
+  const { token, password } = req.body;
+
+  try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const [users] = await db
+      .promise()
+      .query(
+        'SELECT id FROM users WHERE password_reset_token = ? AND password_reset_expires > NOW() AND deleted_at IS NULL LIMIT 1',
+        [tokenHash],
+      );
+
+    if (users.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await db
+      .promise()
+      .query(
+        'UPDATE users SET password_hash = ?, password_reset_token = NULL, password_reset_expires = NULL, updated_at = NOW() WHERE id = ?',
+        [hashedPassword, users[0].id],
+      );
+
+    await createNotification(
+      users[0].id,
+      'system',
+      'Password Updated',
+      'Your password was changed via password reset. If this was not you, contact support immediately.',
+      'high',
+    );
+
+    return res.json({
+      success: true,
+      message: 'Password reset successful. You can now log in with your new password.',
+    });
+  } catch (error) {
+    console.error('Error in reset-password:', error);
+    return res.status(500).json({ success: false, message: 'Failed to reset password' });
   }
 });
 

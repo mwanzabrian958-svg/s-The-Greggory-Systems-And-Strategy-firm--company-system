@@ -92,5 +92,5 @@ Sprint 6 is essentially complete. Remaining carry-over into Sprint 7 (in priorit
 
 1. **Extract user management routes → `backend/routes/admin-users.js`** — write `backend/__tests__/admin.test.js` coverage first, then split (largest risk item, ~400 lines).
 2. **Address `npm audit` findings** — 12 vulnerabilities (2 low, 3 moderate, 6 high, 1 critical). Run `npm audit` and fix the critical/high items; many are dev-only (electron 25, esbuild).
-3. **Add a `/reset-password` endpoint** — `forgot-password` now issues tokens (`password_reset_token` / `password_reset_expires` columns exist in schema); the confirmation endpoint that consumes them is still missing.
+3. ~~**Add a `/reset-password` endpoint**~~ — ✅ **Done.** `POST /api/users/reset-password` now consumes the tokens issued by `forgot-password` (SHA-256-hashed at rest, single-use, 24h expiry). The password-reset flow is end-to-end complete.
 4. **Optional:** install/run `npm run test:coverage` to hit the 70%+ coverage target.

@@ -62,3 +62,46 @@ describe('Validation Middleware', () => {
     });
   });
 });
+
+describe('POST /api/users/reset-password', () => {
+  it('rejects missing token', async () => {
+    const res = await request(app)
+      .post('/api/users/reset-password')
+      .send({ password: 'newpassword123' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toBe('Validation failed');
+  });
+
+  it('rejects missing password', async () => {
+    const res = await request(app)
+      .post('/api/users/reset-password')
+      .send({ token: 'some-token-value' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('rejects short password', async () => {
+    const res = await request(app)
+      .post('/api/users/reset-password')
+      .send({ token: 'some-token-value', password: '123' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('includes field-level error details', async () => {
+    const res = await request(app).post('/api/users/reset-password').send({ password: '123' });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('errors');
+    expect(Array.isArray(res.body.errors)).toBe(true);
+  });
+
+  it('rejects invalid or expired token', async () => {
+    const res = await request(app)
+      .post('/api/users/reset-password')
+      .send({ token: 'definitely-not-a-real-token-0123456789abcdef', password: 'newpassword123' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toBe('Invalid or expired reset token');
+  });
+});
