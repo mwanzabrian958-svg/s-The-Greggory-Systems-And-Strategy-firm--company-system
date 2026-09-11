@@ -57,7 +57,7 @@ SELECT 'Database setup complete!' as message;
 SELECT COUNT(*) as admin_count FROM admin_users;
 `;
 
-connection.query(setupSQL, (err, results) => {
+connection.query(setupSQL, (err, _results) => {
   if (err) {
     console.error('Setup error:', err.message);
     process.exit(1);

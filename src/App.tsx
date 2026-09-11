@@ -154,7 +154,7 @@ const LandingPage = () => {
 
 const InstitutionalCockpit = () => {
   const navigate = useNavigate();
-  const [adminUser, setAdminUser] = useState<any>(null);
+  const [, setAdminUser] = useState<unknown>(null);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
@@ -162,7 +162,7 @@ const InstitutionalCockpit = () => {
     if (sessionStr) {
       try {
         setAdminUser(JSON.parse(sessionStr).user);
-      } catch (e) {
+      } catch {
         setAdminUser(null);
       }
     }

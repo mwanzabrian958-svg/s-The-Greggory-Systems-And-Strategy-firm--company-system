@@ -1,5 +1,5 @@
 const mysql = require('mysql2');
-const { endpoints, clean, DB_NAME } = require('../../server/config/dbEndpoints');
+const { endpoints, DB_NAME } = require('../../server/config/dbEndpoints');
 
 // ============================================================================
 // Shared DB "connection" with two-MySQL failover (local:3306 + claude:28067).

@@ -1,5 +1,5 @@
 const mysql = require('mysql2/promise');
-const { endpoints, clean, DB_NAME } = require('../../server/config/dbEndpoints');
+const { endpoints, DB_NAME } = require('../../server/config/dbEndpoints');
 
 // Create a pool CLUSTER with both MySQL endpoints (local + claude). mysql2
 // fails over automatically: dead node -> next live node, and back when it heals.

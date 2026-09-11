@@ -425,7 +425,7 @@ function getEndpointParameters(name, category) {
   };
 }
 
-function getEndpointResponses(name, category) {
+function getEndpointResponses(_name, _category) {
   return {
     200: { description: 'Success' },
     201: { description: 'Created' },
@@ -450,7 +450,7 @@ function getEndpointAuth(name, category) {
   }
 }
 
-function getParameterSchema(name, category) {
+function getParameterSchema(_name, _category) {
   // Simplified parameter schema - would be expanded in real implementation
   return {
     // This would contain detailed parameter definitions

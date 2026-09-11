@@ -14,8 +14,6 @@ const requireAdmin = require('../middleware/auth');
 const authController = require('../controllers/authController');
 const { authEndpointValidator } = require('../middleware/authEndpointValidator');
 const { createNotification } = require('../utils/notificationHelper');
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
 const { validate, loginSchema, registerSchema } = require('../validators');
 
 const authenticateUser = (req, res, next) => {
@@ -163,7 +161,7 @@ router.get('/', requireAdmin, (req, res) => {
 router.delete('/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const query = 'DELETE FROM users WHERE id = ?';
-  db.query(query, [id], (err, result) => {
+  db.query(query, [id], (err, _result) => {
     if (err) return res.status(500).json({ error: 'Failed to delete user' });
     res.json({ message: 'User deleted successfully' });
   });

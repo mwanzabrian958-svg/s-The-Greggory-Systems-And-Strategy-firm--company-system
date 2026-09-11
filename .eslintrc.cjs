@@ -22,7 +22,7 @@ module.exports = {
     },
   },
   plugins: ['react', 'react-hooks', '@typescript-eslint'],
-  overrides: [
+    overrides: [
     {
       // Plain Node scripts (.cjs): no TS parsing, console + process are fine.
       files: ['**/*.cjs'],
@@ -31,6 +31,20 @@ module.exports = {
         '@typescript-eslint/no-var-requires': 'off',
         'no-console': 'off',
         'no-undef': 'off',
+      },
+    },
+    {
+      // Backend server code: console logging is essential for observability.
+      files: ['backend/**/*.js'],
+      rules: {
+        'no-console': 'off',
+      },
+    },
+    {
+      // Test files: console.log is common in debug output.
+      files: ['**/*.test.js', '**/*.test.ts', '**/*.test.tsx', 'src/__tests__/**'],
+      rules: {
+        'no-console': 'off',
       },
     },
   ],

@@ -52,7 +52,7 @@ router.put('/:companyId', requireAdmin, (req, res) => {
   db.query(
     query,
     [companyId, station_manager, service_area, base_location, updated_by],
-    (err, result) => {
+    (err, _result) => {
       if (err) {
         console.error('Error updating management info:', err);
         return res.status(500).json({ error: 'Failed to update management info' });
