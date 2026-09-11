@@ -2,42 +2,35 @@ const express = require('express');
 const router = express.Router();
 const { initiateSTKPush } = require('../services/mpesaService');
 const db = require('../config/database');
+const { validate, mpesaStkSchema, mpesaRecordSchema } = require('../validators');
+const { success, error } = require('../utils/responseHelper');
 
 /**
  * Trigger STK Push
  * POST /api/mpesa/stkpush
  */
-router.post('/stkpush', async (req, res) => {
+router.post('/stkpush', validate(mpesaStkSchema), async (req, res) => {
   try {
-    const { phoneNumber, amount, accountReference, description, userId } = req.body;
-
-    if (!phoneNumber || !amount) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Phone number and amount are required' });
-    }
+    const { phone_number, amount, account_reference, transaction_desc } = req.body;
 
     const result = await initiateSTKPush(
-      phoneNumber,
+      phone_number,
       amount,
-      accountReference || 'GSS-FIRM',
-      description || 'Consultancy Payment',
+      account_reference || 'GSS-FIRM',
+      transaction_desc || 'Consultancy Payment',
     );
 
     if (result.success) {
-      // Resolve a valid creator: prefer the acting user, fall back to any
-      // existing account, else NULL (column is nullable for system entries).
-      let createdBy = Number(userId) || null;
-      if (!createdBy) {
+      let created_by = Number(req.body.user_id) || null;
+      if (!created_by) {
         try {
           const [u] = await db.promise().query('SELECT id FROM users ORDER BY id LIMIT 1');
-          createdBy = u?.[0]?.id ?? null;
+          created_by = u?.[0]?.id ?? null;
         } catch (_) {
           /* leave null */
         }
       }
 
-      // Record transaction as pending in MySQL
       try {
         await db.promise().query(
           `INSERT INTO mpesa_transactions (
@@ -47,36 +40,32 @@ router.post('/stkpush', async (req, res) => {
           [
             result.CheckoutRequestID,
             amount,
-            phoneNumber,
-            accountReference || 'GSS-FIRM',
+            phone_number,
+            account_reference || 'GSS-FIRM',
             JSON.stringify(result),
-            createdBy,
+            created_by,
           ],
         );
       } catch (dbErr) {
         console.warn('[MPESA] Failed to log pending transaction:', dbErr.message);
       }
 
-      res.json({
-        success: true,
+      return success(res, {
         message: result.simulated
           ? 'Simulation: STK Push initialized'
           : 'STK Push sent to your phone',
-        checkoutRequestId: result.CheckoutRequestID,
+        checkout_request_id: result.CheckoutRequestID,
         simulated: result.simulated,
       });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'M-Pesa STK Push failed',
-        error: result.errorMessage || result.ResponseDescription,
-      });
     }
-  } catch (error) {
-    console.error('[MPESA STKPUSH] Error:', error);
-    res
-      .status(500)
-      .json({ success: false, message: 'Server error during STK Push', error: error.message });
+    return error(
+      res,
+      result.errorMessage || result.ResponseDescription || 'M-Pesa STK Push failed',
+      500,
+    );
+  } catch (err) {
+    console.error('[MPESA STKPUSH] Error:', err);
+    return error(res, 'Server error during STK Push');
   }
 });
 
@@ -97,7 +86,7 @@ router.post('/callback', async (req, res) => {
       `[MPESA CALLBACK] Received for ${checkoutRequestId}: ${resultDesc} (${resultCode})`,
     );
 
-    let status = resultCode === 0 ? 'completed' : 'failed';
+    const status = resultCode === 0 ? 'completed' : 'failed';
     let mpesaReceiptNumber = null;
 
     if (resultCode === 0) {
@@ -106,7 +95,6 @@ router.post('/callback', async (req, res) => {
       mpesaReceiptNumber = receiptItem ? receiptItem.Value : null;
     }
 
-    // Update transaction in database
     await db.promise().query(
       `UPDATE mpesa_transactions
        SET status = ?, result_code = ?, result_desc = ?, mpesa_receipt = ?, updated_at = NOW()
@@ -114,7 +102,6 @@ router.post('/callback', async (req, res) => {
       [status, resultCode, resultDesc, mpesaReceiptNumber, checkoutRequestId],
     );
 
-    // If payment was successful, mirror it to the General Ledger (accounting_entries)
     if (status === 'completed') {
       try {
         const [txRows] = await db
@@ -147,10 +134,10 @@ router.post('/callback', async (req, res) => {
       }
     }
 
-    res.json({ ResultCode: 0, ResultDesc: 'Success' });
-  } catch (error) {
-    console.error('[MPESA CALLBACK] Error:', error);
-    res.status(500).json({ ResultCode: 1, ResultDesc: 'Internal Server Error' });
+    return res.json({ ResultCode: 0, ResultDesc: 'Success' });
+  } catch (err) {
+    console.error('[MPESA CALLBACK] Error:', err);
+    return res.status(500).json({ ResultCode: 1, ResultDesc: 'Internal Server Error' });
   }
 });
 
@@ -169,12 +156,12 @@ router.get('/status/:checkoutRequestId', async (req, res) => {
       );
 
     if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Transaction not found' });
+      return error(res, 'Transaction not found', 404);
     }
 
-    res.json({ success: true, ...rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    return success(res, rows[0]);
+  } catch (err) {
+    return error(res, err.message);
   }
 });
 

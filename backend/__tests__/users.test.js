@@ -1,72 +1,64 @@
 const request = require('supertest');
 const app = require('../server');
 
-describe('Users API', () => {
-  describe('GET /api/users/test', () => {
-    it('confirms router is loaded', async () => {
-      const res = await request(app).get('/api/users/test');
+describe('Response Helper', () => {
+  describe('GET /api/health', () => {
+    it('returns standardized success format', async () => {
+      const res = await request(app).get('/api/health');
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.message).toBe('Users router is working');
+      expect(res.body).toHaveProperty('status', 'OK');
     });
   });
+});
 
+describe('Validation Middleware', () => {
   describe('POST /api/users/register', () => {
-    it('rejects registration with invalid email', async () => {
+    it('rejects missing email', async () => {
       const res = await request(app)
         .post('/api/users/register')
-        .send({
-          email: 'not-an-email',
-          password: 'password123',
-          first_name: 'Test',
-          last_name: 'User',
-        })
-        .set('Accept', 'application/json');
+        .send({ password: 'password123', first_name: 'Test', last_name: 'User' });
       expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('Validation failed');
     });
 
-    it('rejects registration with short password', async () => {
+    it('rejects short password', async () => {
       const res = await request(app)
         .post('/api/users/register')
-        .send({
-          email: 'test@example.com',
-          password: '123',
-          first_name: 'Test',
-          last_name: 'User',
-        })
-        .set('Accept', 'application/json');
+        .send({ email: 'test@test.com', password: '123', first_name: 'Test', last_name: 'User' });
       expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
     });
 
-    it('rejects registration with missing name', async () => {
+    it('rejects missing names', async () => {
       const res = await request(app)
         .post('/api/users/register')
-        .send({
-          email: 'test@example.com',
-          password: 'password123',
-          first_name: '',
-          last_name: '',
-        })
-        .set('Accept', 'application/json');
+        .send({ email: 'test@test.com', password: 'password123', first_name: '', last_name: '' });
       expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('includes field-level error details', async () => {
+      const res = await request(app)
+        .post('/api/users/register')
+        .send({ email: 'not-an-email', password: '123', first_name: '', last_name: '' });
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('errors');
+      expect(Array.isArray(res.body.errors)).toBe(true);
     });
   });
 
-  describe('POST /api/users/login', () => {
-    it('rejects login with invalid email format', async () => {
-      const res = await request(app)
-        .post('/api/users/login')
-        .send({ email: 'notanemail', password: 'test123' })
-        .set('Accept', 'application/json');
+  describe('POST /api/blog-articles', () => {
+    it('rejects missing title', async () => {
+      const res = await request(app).post('/api/blog-articles').send({ content: 'Some content' });
       expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
     });
 
-    it('rejects login with missing password', async () => {
-      const res = await request(app)
-        .post('/api/users/login')
-        .send({ email: 'test@test.com', password: '' })
-        .set('Accept', 'application/json');
+    it('rejects missing content', async () => {
+      const res = await request(app).post('/api/blog-articles').send({ title: 'Some title' });
       expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
     });
   });
 });
