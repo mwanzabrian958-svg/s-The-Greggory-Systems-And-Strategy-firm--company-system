@@ -285,7 +285,7 @@ describe('responseHelper utility', () => {
   });
 
   it('error returns a 400 with success false', () => {
-    responseHelper.error(res, 'Bad request');
+    responseHelper.error(res, 'Bad request', 400);
     expect(res.statusCode).toBe(400);
     expect(res._json.success).toBe(false);
     expect(res._json.message).toBe('Bad request');

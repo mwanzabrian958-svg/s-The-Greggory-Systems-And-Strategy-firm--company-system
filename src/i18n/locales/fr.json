@@ -412,6 +412,7 @@
   "empty.noResults": "Aucun resultat trouve",
   "empty.noResultsHint": "Essayez un autre terme de recherche.",
   "empty.onboarding": "Commencer",
+  "empty.onboardingHint": "Créez votre premier projet pour commencer.",
   "realtime.unreadCountPrefix": "Vous avez {count} messages non lus",
   "realtime.unreadManyPrefix": "Vous avez environ {ceiling} messages non lus",
   "realtime.connectionStatus": "Connexion: {status}",
