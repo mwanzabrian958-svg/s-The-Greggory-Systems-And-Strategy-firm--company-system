@@ -17,30 +17,36 @@ const TEST_CONTACT_EMAIL = `cf-test-${Date.now()}@greggory.test`;
 process.env.ADMIN_KEY = ADMIN_KEY;
 
 afterAll(async () => {
-  // Clean up user_projects created during tests.
   for (const id of createdProjectIds) {
     try {
       await db.promise().query('DELETE FROM user_projects WHERE id = ?', [id]);
     } catch (_) {}
   }
-  // Clean up blog_articles created during tests.
   for (const id of createdArticleIds) {
     try {
       await db.promise().query('DELETE FROM blog_articles WHERE id = ?', [id]);
     } catch (_) {}
   }
-  // Clean up content created during tests.
   for (const id of createdContentIds) {
     try {
       await db.promise().query('DELETE FROM content WHERE id = ?', [id]);
     } catch (_) {}
   }
-  // Clean up images created during tests.
   for (const id of createdImageIds) {
     try {
       await db.promise().query('DELETE FROM images WHERE id = ?', [id]);
     } catch (_) {}
   }
+  for (const id of createdCrmContactIds) {
+    try {
+      await db.promise().query('DELETE FROM crm_contacts WHERE id = ?', [id]);
+    } catch (_) {}
+  }
+  try {
+    await db
+      .promise()
+      .query('DELETE FROM admin_settings WHERE setting_key = ?', ['coverage_test_key']);
+  } catch (_) {}
   try {
     await db.promise().query('DELETE FROM management_info WHERE company_id = ?', [TEST_COMPANY_ID]);
   } catch (_) {}
@@ -1218,5 +1224,189 @@ describe('DELETE /api/admin/blog-articles/:id', () => {
   it('returns 404 for a non-existent blog article', async () => {
     const res = await request(app).delete('/api/admin/blog-articles/99999999');
     expect(res.status).toBe(404);
+  });
+});
+
+// ── Admin CRM ──────────────────────────────────────────────────
+const createdCrmContactIds = [];
+
+describe('GET /api/admin/crm/contacts', () => {
+  it('returns a list of CRM contacts', async () => {
+    const res = await request(app).get('/api/admin/crm/contacts');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.contacts)).toBe(true);
+  });
+});
+
+describe('POST /api/admin/crm/contacts', () => {
+  it('creates a new CRM contact', async () => {
+    const res = await request(app)
+      .post('/api/admin/crm/contacts')
+      .send({
+        name: `CRM Contact ${Date.now()}`,
+        email: `crm-${Date.now()}@greggory.test`,
+        phone: '254712345678',
+        company: 'CRM Test Co',
+        status: 'lead',
+        notes: 'Coverage test contact',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.id).toBeDefined();
+    createdCrmContactIds.push(res.body.id);
+  });
+
+  it('rejects a contact without a name', async () => {
+    const res = await request(app)
+      .post('/api/admin/crm/contacts')
+      .send({ email: 'noname@greggory.test' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('PUT /api/admin/crm/contacts/:id', () => {
+  it('updates an existing contact', async () => {
+    const id = createdCrmContactIds[0];
+    const res = await request(app)
+      .put(`/api/admin/crm/contacts/${id}`)
+      .send({ name: 'Updated Contact', status: 'client' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const [rows] = await db
+      .promise()
+      .query('SELECT name, status FROM crm_contacts WHERE id = ?', [id]);
+    expect(rows[0].name).toBe('Updated Contact');
+    expect(rows[0].status).toBe('client');
+  });
+
+  it('returns 404 for a non-existent contact', async () => {
+    const res = await request(app).put('/api/admin/crm/contacts/99999999').send({ name: 'Ghost' });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('DELETE /api/admin/crm/contacts/:id', () => {
+  it('soft-deletes a contact', async () => {
+    const [result] = await db
+      .promise()
+      .query(
+        `INSERT INTO crm_contacts (name, email, status) VALUES ('ToDelete', 'delete@greggory.test', 'lead')`,
+      );
+    const id = result.insertId;
+
+    const res = await request(app).delete(`/api/admin/crm/contacts/${id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const [rows] = await db
+      .promise()
+      .query('SELECT deleted_at FROM crm_contacts WHERE id = ?', [id]);
+    expect(rows[0].deleted_at).not.toBeNull();
+
+    await db.promise().query('DELETE FROM crm_contacts WHERE id = ?', [id]);
+  });
+});
+
+// ── Admin Settings ─────────────────────────────────────────────
+describe('GET /api/admin/settings', () => {
+  it('returns admin settings', async () => {
+    const res = await request(app).get('/api/admin/settings');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.settings).toBeDefined();
+  });
+});
+
+describe('PUT /api/admin/settings', () => {
+  it('updates settings', async () => {
+    const res = await request(app)
+      .put('/api/admin/settings')
+      .send({ coverage_test_key: `coverage-${Date.now()}`, site_name: 'Coverage Test' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.updated).toBeDefined();
+    expect(res.body.updated.length).toBeGreaterThan(0);
+
+    // Cleanup.
+    await db
+      .promise()
+      .query('DELETE FROM admin_settings WHERE setting_key = ?', ['coverage_test_key']);
+  });
+
+  it('rejects invalid settings data', async () => {
+    const res = await request(app).put('/api/admin/settings').send('not-an-object');
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/admin/node-settings', () => {
+  it('returns node settings with system status', async () => {
+    const res = await request(app).get('/api/admin/node-settings');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.system).toBeDefined();
+    expect(res.body.system.status).toBe('operational');
+  });
+});
+
+// ── Admin Complete (alternative admin routes) ──────────────────
+describe('GET /api/admin/budget-overview', () => {
+  it('returns budget overview', async () => {
+    const res = await request(app).get('/api/admin/budget-overview');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/ledger', () => {
+  it('returns ledger entries', async () => {
+    const res = await request(app).get('/api/admin/ledger');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/mpesa/transactions', () => {
+  it('returns M-Pesa transactions', async () => {
+    const res = await request(app).get('/api/admin/mpesa/transactions');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+// ── Easy Admin ─────────────────────────────────────────────────
+describe('GET /api/easy-admin/departments', () => {
+  it('returns a list of departments', async () => {
+    const res = await request(app).get('/api/easy-admin/departments');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/easy-admin/departments/:slug', () => {
+  it('returns a department by slug', async () => {
+    const res = await request(app).get('/api/easy-admin/departments/operations');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+// ── Developer Verification ─────────────────────────────────────
+describe('POST /api/developer-verification/authenticate', () => {
+  it('rejects missing credentials', async () => {
+    const res = await request(app).post('/api/developer-verification/authenticate').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('GET /api/developer-verification/health', () => {
+  it('returns health status', async () => {
+    const res = await request(app).get('/api/developer-verification/health');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
   });
 });
