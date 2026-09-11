@@ -22,7 +22,7 @@ module.exports = {
     },
   },
   plugins: ['react', 'react-hooks', '@typescript-eslint'],
-    overrides: [
+  overrides: [
     {
       // Plain Node scripts (.cjs): no TS parsing, console + process are fine.
       files: ['**/*.cjs'],
