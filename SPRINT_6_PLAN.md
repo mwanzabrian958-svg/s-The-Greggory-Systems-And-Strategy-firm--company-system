@@ -45,7 +45,7 @@
 - [x] `POST /api/users/forgot-password` — Password reset email
 
 ### 5. Refactor admin.js (1 hour)
-- [ ] Extract user management routes → `backend/routes/admin-users.js` *(deferred — highest risk, no dedicated tests yet; see note)*
+- [x] Extract user management routes → `backend/routes/admin-users.js` (11 routes: `profile-lookup`, `live-users`, `search`, `admin-users`, `users`, `create-admin`, `users/:id/export-pdf`, `users/:id`, `users/:id/status` PUT, `users/:id` DELETE, `users/:id` GET) — mounted at `/api/admin` in `server.js`; all public URLs unchanged; zero route duplication across the two routers (17 + 11); unused `bcrypt`/`verifySessionToken` imports + `requireAdminSession` removed from slimmed `admin.js`; contract tests in `users.test.js` (auth-rejection parity for 8 protected endpoints + shape contract for 3 public) pass pre/post split (23/23 users suite, 5/5 protected suite)
 - [x] Extract CRM routes → `backend/routes/admin-crm.js` (mounted at `/api/admin/crm`)
 - [x] Extract settings routes → `backend/routes/admin-settings.js` (mounted at `/api/admin`)
 - [x] Update `backend/server.js` to use new route files
@@ -77,7 +77,7 @@
 |-------|--------|------------|
 | 1.1 Validation | ✅ Done | 7/7 routes done |
 | 1.2 Response Helper | ✅ Done | 8/8 routes done |
-| 1.3 Refactor admin.js | 🟡 Partial | CRM + Settings extracted (2/3 files) |
+| 1.3 Refactor admin.js | ✅ Done | CRM + Settings + Users extracted (3/3 files) |
 | 2.1 Route Tests | ✅ Done | 6/6 files |
 | 3.1 Missing Endpoints | ✅ Done | 3/3 endpoints |
 | 5.1 Swagger | ✅ Done | 4/4 routes |
@@ -90,7 +90,7 @@
 
 Sprint 6 is essentially complete. Remaining carry-over into Sprint 7 (in priority order):
 
-1. **Extract user management routes → `backend/routes/admin-users.js`** — write `backend/__tests__/admin.test.js` coverage first, then split (largest risk item, ~400 lines).
+1. **Extract user management routes → `backend/routes/admin-users.js`** — ✅ **Done** this session.
 2. **Address `npm audit` findings** — 12 vulnerabilities (2 low, 3 moderate, 6 high, 1 critical). Run `npm audit` and fix the critical/high items; many are dev-only (electron 25, esbuild).
 3. ~~**Add a `/reset-password` endpoint**~~ — ✅ **Done.** `POST /api/users/reset-password` now consumes the tokens issued by `forgot-password` (SHA-256-hashed at rest, single-use, 24h expiry). The password-reset flow is end-to-end complete.
 4. **Optional:** install/run `npm run test:coverage` to hit the 70%+ coverage target.

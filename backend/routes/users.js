@@ -691,6 +691,13 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
   const { token, password } = req.body;
 
+  // Tokens issued by forgot-password are 64-char hex strings. Anything else
+  // can never match a stored hash, so reject it here — keeps this endpoint
+  // DB-independent for malformed input (and saves a DB round-trip).
+  if (!/^[0-9a-fA-F]{64}$/.test(token)) {
+    return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+  }
+
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const [users] = await db
