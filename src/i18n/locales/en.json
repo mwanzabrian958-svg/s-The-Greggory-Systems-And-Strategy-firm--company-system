@@ -412,5 +412,10 @@
   "empty.noResults": "No results found",
   "empty.noResultsHint": "Try a different search term.",
   "empty.onboarding": "Get started",
-  "empty.onboardingHint": "Create your first project to get started."
+  "empty.onboardingHint": "Create your first project to get started.",
+  "realtime.unreadCountPrefix": "You have {count} unread",
+  "realtime.unreadManyPrefix": "You have {ceiling} unread",
+  "realtime.connectionStatus": "Connection: {status}",
+  "realtime.disconnected": "Disconnected",
+  "realtime.connecting": "Connecting"
 }

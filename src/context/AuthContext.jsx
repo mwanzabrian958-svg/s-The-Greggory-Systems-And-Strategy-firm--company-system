@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { connectSocket, disconnectSocket } from '../services/socket'
 
 const AuthContext = createContext({
   isAuthenticated: false,
@@ -16,7 +17,7 @@ export const AuthProvider = ({ children }) => {
         // Only hydrate a real session — a profile without a token is stale
         if (parsed?.token) return parsed
       } catch (e) {
-        console.error('Auth parse error:', e)
+        // Corrupt session blob — fall through to the admin session / anonymous
       }
     }
     const adminSaved = localStorage.getItem('gf_admin_user')
@@ -24,7 +25,9 @@ export const AuthProvider = ({ children }) => {
       try {
         const adminData = JSON.parse(adminSaved)
         if (adminData?.token) return { ...adminData, role: adminData.role || 'admin' }
-      } catch (e) {}
+      } catch (e) {
+        // Corrupt admin blob — fall through to anonymous
+      }
     }
     return null
   })
@@ -39,7 +42,9 @@ export const AuthProvider = ({ children }) => {
             setUser(parsed)
             return
           }
-        } catch (e) {}
+        } catch (e) {
+          // Corrupt session blob — fall through to the admin session
+        }
       }
       const adminSaved = localStorage.getItem('gf_admin_user')
       if (adminSaved) {
@@ -49,7 +54,9 @@ export const AuthProvider = ({ children }) => {
             setUser({ ...adminData, role: adminData.role || 'admin' })
             return
           }
-        } catch (e) {}
+        } catch (e) {
+          // Corrupt admin blob — fall through to anonymous
+        }
       }
       setUser(null)
     }
@@ -65,6 +72,22 @@ export const AuthProvider = ({ children }) => {
     setUser(userData)
     localStorage.setItem('tgf_user', JSON.stringify(userData))
   }
+
+  // Realtime: connect the socket whenever a session token exists (login or a
+  // hydrated session), disconnect on logout. Best-effort — a realtime outage
+  // must never break authentication.
+  useEffect(() => {
+    const token = user?.token
+    if (token) {
+      try {
+        connectSocket(undefined, token)
+      } catch (e) {
+        console.warn('Realtime connect failed:', e)
+      }
+    } else {
+      disconnectSocket()
+    }
+  }, [user?.token])
 
   const logout = () => {
     setUser(null)

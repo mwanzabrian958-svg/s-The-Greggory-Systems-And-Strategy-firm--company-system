@@ -6,6 +6,23 @@ import type { ServerToClientEvents, ClientToServerEvents } from '../types/socket
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 type AnyListener = (..._args: unknown[]) => void;
 
+/**
+ * Resolve the Socket.IO server URL.
+ * Precedence: explicit arg > Electron-injected `window.APIConfig.baseURL` >
+ * `VITE_API_BASE_URL` (stripped of its `/api` suffix) > dev fallback
+ * (`http://localhost:3000`, matching the API proxy target) > same origin
+ * (production: the frontend is served by the backend itself).
+ */
+export function resolveSocketUrl(explicit?: string): string {
+  if (explicit) return explicit.replace(/\/$/, '');
+  const injected = window.APIConfig?.baseURL;
+  if (injected) return injected.replace(/\/$/, '');
+  const envBase = import.meta.env?.VITE_API_BASE_URL as string | undefined;
+  if (envBase) return envBase.replace(/\/api\/?$/, '').replace(/\/$/, '');
+  if (import.meta.env.DEV) return 'http://localhost:3000';
+  return window.location.origin;
+}
+
 // The dynamic `e + ':' + subEvent` names can't be expressed as literal-typed
 // event names, so listener registration goes through this minimal structural
 // surface instead of the literal-union overloads.
@@ -43,7 +60,7 @@ export function createSocket(url: string) {
 
 export function getSocket(u?: string) {
   if (!socket) {
-    createSocket(u || window.APIConfig?.baseURL || 'http://localhost:3000');
+    createSocket(resolveSocketUrl(u));
   }
   return socket as AppSocket;
 }

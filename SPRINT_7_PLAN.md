@@ -13,6 +13,9 @@
 | 2 | `npm audit` — backend server deps bumped (expres 4.22.2, multer 2.0.2, mysql2 3.24.4) + full analysis documented | `a879800` |
 | 3 | `POST /api/users/reset-password` (password-reset flow end-to-end) | `7bf041e` |
 | 4 | Coverage tooling: `@vitest/coverage-v8`, baseline 31.71%, `coverage/` gitignored | `9c78bcf` |
+| 5 | Sprint 7 plan committed | `49469e1` |
+| 6 | i18n (en/sw/fr) + realtime client landed (switcher, online status, socket types, 8 tests) | `84fdd06` |
+| 7 | **Backend Socket.IO server** (`backend/realtime/socketServer.js`): handshake auth for BOTH admin HMAC session tokens and user JWTs; presence broadcasts; notification read/delete acks; conversation `join`/typing/message relay; `dashboard:requestStats`; shared CORS with Express; live `notification:new` push bridge in `notificationHelper`; 12 integration tests on an ephemeral port. Also fixed: ANSI_QUOTES-safe SQL (`'read'`/`'unread'` literals — double quotes are identifiers on this DB), pre-existing empty `catch` lint errors in `AuthContext`, and the client socket URL resolver (`resolveSocketUrl`) | (this commit) |
 
 ---
 

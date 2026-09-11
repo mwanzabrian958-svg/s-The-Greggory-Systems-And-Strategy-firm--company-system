@@ -40,6 +40,7 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   'auth:join': (data: { token: string }) => void;
   'auth:leave': () => void;
+  'conversation:join': (data: { conversationId: string }) => void;
   'notification:markRead': (data: { id: string }) => void;
   'notification:delete': (data: { id: string }) => void;
   'typing:start': (data: { conversationId: string }) => void;

@@ -412,5 +412,9 @@
   "empty.noResults": "Hakuna matokeo",
   "empty.noResultsHint": "Jaribu neno lingine la tafuta.",
   "empty.onboarding": "Anza",
-  "empty.onboardingHint": "Unda mfumo wako wa kwanza."
+  "realtime.unreadCountPrefix": "Una {count} isiyosomwa",
+  "realtime.unreadManyPrefix": "Una takriban {ceiling} isiyosomwa",
+  "realtime.connectionStatus": "Uunganisho: {status}",
+  "realtime.disconnected": "Hauko na uunganisho",
+  "realtime.connecting": "Unaunganisha"
 }
