@@ -962,14 +962,12 @@ describe('POST /api/admin/create-admin (admin session)', () => {
   });
 
   it('rejects without a session token', async () => {
-    const res = await request(app)
-      .post('/api/admin/create-admin')
-      .send({
-        first_name: 'No',
-        last_name: 'Auth',
-        email: 'noauth@greggory.test',
-        password: 'pass1234',
-      });
+    const res = await request(app).post('/api/admin/create-admin').send({
+      first_name: 'No',
+      last_name: 'Auth',
+      email: 'noauth@greggory.test',
+      password: 'pass1234',
+    });
     expect(res.status).toBe(401);
   });
 
@@ -1081,6 +1079,144 @@ describe('DELETE /api/admin/users/:id (admin session)', () => {
       .delete('/api/admin/users/99999999')
       .query({ role_type: 'admin' })
       .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(404);
+  });
+});
+
+// ── Admin.js: dashboard, activity logs, reports ────────────────
+describe('GET /api/admin/dashboard-stats', () => {
+  it('returns dashboard statistics', async () => {
+    const res = await request(app).get('/api/admin/dashboard-stats');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.stats).toBeDefined();
+    expect(typeof res.body.stats.totalUsers).toBe('number');
+    expect(typeof res.body.stats.totalProjects).toBe('number');
+    expect(Array.isArray(res.body.recentActivity)).toBe(true);
+  });
+});
+
+describe('GET /api/admin/activity-logs', () => {
+  it('returns a list of activity logs', async () => {
+    const res = await request(app).get('/api/admin/activity-logs');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+});
+
+describe('GET /api/admin/budget-overview', () => {
+  it('returns budget overview data', async () => {
+    const res = await request(app).get('/api/admin/budget-overview');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/pending-approvals', () => {
+  it('returns pending approvals', async () => {
+    const res = await request(app).get('/api/admin/pending-approvals');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/pending-invoices', () => {
+  it('returns pending invoices', async () => {
+    const res = await request(app).get('/api/admin/pending-invoices');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/client-feedback', () => {
+  it('returns client feedback', async () => {
+    const res = await request(app).get('/api/admin/client-feedback');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/ledger', () => {
+  it('returns ledger entries', async () => {
+    const res = await request(app).get('/api/admin/ledger');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/risk-alerts', () => {
+  it('returns risk alerts', async () => {
+    const res = await request(app).get('/api/admin/risk-alerts');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/assigned-tasks', () => {
+  it('returns assigned tasks', async () => {
+    const res = await request(app).get('/api/admin/assigned-tasks');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('GET /api/admin/projects/all', () => {
+  it('returns all projects (admin view)', async () => {
+    const res = await request(app).get('/api/admin/projects/all');
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+});
+
+describe('POST /api/admin/reports', () => {
+  it('creates a report', async () => {
+    const res = await request(app)
+      .post('/api/admin/reports')
+      .send({
+        title: `Coverage Report ${Date.now()}`,
+        summary: 'Test report for coverage.',
+        admin_id: 1,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.id).toBeDefined();
+
+    // Verify the report exists in the DB.
+    const [rows] = await db
+      .promise()
+      .query('SELECT title FROM admin_reports WHERE id = ?', [res.body.id]);
+    expect(rows.length).toBe(1);
+
+    // Cleanup.
+    await db.promise().query('DELETE FROM admin_reports WHERE id = ?', [res.body.id]);
+  });
+
+  it('rejects a report without a title', async () => {
+    const res = await request(app).post('/api/admin/reports').send({ summary: 'No title' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('DELETE /api/admin/accounting/entries/:id', () => {
+  it('rejects deletion without an id', async () => {
+    const res = await request(app).delete('/api/admin/accounting/entries/99999999');
+    // Either 404 (not found) or 400 (bad request) is acceptable.
+    expect([400, 404]).toContain(res.status);
+  });
+});
+
+describe('DELETE /api/admin/invoices/:id', () => {
+  it('rejects deletion without an id', async () => {
+    const res = await request(app).delete('/api/admin/invoices/99999999');
+    expect([400, 404]).toContain(res.status);
+  });
+});
+
+describe('DELETE /api/admin/blog-articles/:id', () => {
+  it('returns 404 for a non-existent blog article', async () => {
+    const res = await request(app).delete('/api/admin/blog-articles/99999999');
     expect(res.status).toBe(404);
   });
 });
