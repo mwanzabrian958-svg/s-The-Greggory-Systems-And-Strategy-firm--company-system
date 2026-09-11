@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const { createNotification } = require('../utils/notificationHelper');
+const { validate, projectSchema } = require('../validators');
+const { success, error } = require('../utils/responseHelper');
 
 router.get('/', async (req, res) => {
   try {
@@ -12,10 +14,10 @@ router.get('/', async (req, res) => {
       ORDER BY created_at DESC
     `);
 
-    res.json(rows);
+    return success(res, { data: rows });
   } catch (error) {
     console.error('Error fetching user projects:', error);
-    res.status(500).json({ error: 'Failed to fetch user projects' });
+    return error(res, 'Failed to fetch user projects');
   }
 });
 
@@ -27,17 +29,17 @@ router.get('/:id', async (req, res) => {
       .query('SELECT * FROM user_projects WHERE id = ? AND deleted_at IS NULL', [id]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Project not found' });
+      return error(res, 'Project not found', 404);
     }
 
-    res.json(rows[0]);
+    return success(res, { data: rows[0] });
   } catch (error) {
     console.error('Error fetching user project:', error);
-    res.status(500).json({ error: 'Failed to fetch user project' });
+    return error(res, 'Failed to fetch user project');
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', validate(projectSchema), async (req, res) => {
   try {
     const {
       user_id,
@@ -63,10 +65,6 @@ router.post('/', async (req, res) => {
       progress_percentage,
       notes,
     } = req.body;
-
-    if (!user_id || !project_name) {
-      return res.status(400).json({ error: 'User ID and project name are required' });
-    }
 
     const [result] = await db.promise().query(
       `INSERT INTO user_projects (
@@ -112,14 +110,14 @@ router.post('/', async (req, res) => {
       'high',
     );
 
-    res.status(201).json({ message: 'Project created successfully', id: result.insertId });
+    return success(res, { message: 'Project created successfully', id: result.insertId }, 201);
   } catch (error) {
     console.error('Error creating user project:', error);
-    res.status(500).json({ error: 'Failed to create user project' });
+    return error(res, 'Failed to create user project');
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(projectSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -183,7 +181,7 @@ router.put('/:id', async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Project not found' });
+      return error(res, 'Project not found', 404);
     }
 
     // REAL-LIFE NOTIF: Notify user of project parameters change
@@ -199,10 +197,10 @@ router.put('/:id', async (req, res) => {
       );
     }
 
-    res.json({ message: 'Project updated successfully' });
+    return success(res, { message: 'Project updated successfully' });
   } catch (error) {
     console.error('Error updating user project:', error);
-    res.status(500).json({ error: 'Failed to update user project' });
+    return error(res, 'Failed to update user project');
   }
 });
 
@@ -217,13 +215,13 @@ router.delete('/:id', async (req, res) => {
       );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Project not found' });
+      return error(res, 'Project not found', 404);
     }
 
-    res.json({ message: 'Project deleted successfully' });
+    return success(res, { message: 'Project deleted successfully' });
   } catch (error) {
     console.error('Error deleting user project:', error);
-    res.status(500).json({ error: 'Failed to delete user project' });
+    return error(res, 'Failed to delete user project');
   }
 });
 

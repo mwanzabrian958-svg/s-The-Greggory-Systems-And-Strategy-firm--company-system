@@ -166,6 +166,9 @@ const adminRoutes = require('./routes/admin');
 const adminVerificationRoutes = require('./routes/admin-verification');
 const developerVerificationRoutes = require('./routes/developer-verification');
 const easyAdminRoutes = require('./routes/easy-admin');
+const mpesaRoutes = require('./routes/mpesa');
+const smsRoutes = require('./routes/sms');
+const whatsappRoutes = require('./routes/whatsapp');
 
 // Use routes
 app.use('/api/users', userRoutes);
@@ -179,6 +182,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin-verification', adminVerificationRoutes);
 app.use('/api/developer-verification', developerVerificationRoutes);
 app.use('/api/easy-admin', easyAdminRoutes);
+app.use('/api/mpesa', mpesaRoutes);
+app.use('/api/sms', smsRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // API Documentation
 if (process.env.NODE_ENV !== 'production') {

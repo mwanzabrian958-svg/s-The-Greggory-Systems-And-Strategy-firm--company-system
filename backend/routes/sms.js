@@ -3,7 +3,8 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { sendSMS, sendBulkSMS, COMPANY_PHONE_NUMBER } = require('../services/smsService');
 const db = require('../config/database');
-const { validate, smsBulkSchema, z } = require('../validators');
+const { validate, smsBulkSchema } = require('../validators');
+const { z } = require('zod');
 const { success, error } = require('../utils/responseHelper');
 
 const authenticateUser = (req, res, next) => {

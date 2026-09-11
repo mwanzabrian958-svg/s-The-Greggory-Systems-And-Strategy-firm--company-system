@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const { createNotification } = require('../utils/notificationHelper');
+const { validate, contactFormSchema } = require('../validators');
+const { success, error } = require('../utils/responseHelper');
 
 router.get('/', async (req, res) => {
   try {
@@ -11,10 +13,10 @@ router.get('/', async (req, res) => {
       ORDER BY created_at DESC
     `);
 
-    res.json(rows);
+    return success(res, { data: rows });
   } catch (error) {
     console.error('Error fetching contact forms:', error);
-    res.status(500).json({ error: 'Failed to fetch contact forms' });
+    return error(res, 'Failed to fetch contact forms');
   }
 });
 
@@ -24,23 +26,19 @@ router.get('/:id', async (req, res) => {
     const [rows] = await db.promise().query('SELECT * FROM contact_forms WHERE id = ?', [id]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Contact form not found' });
+      return error(res, 'Contact form not found', 404);
     }
 
-    res.json(rows[0]);
+    return success(res, { data: rows[0] });
   } catch (error) {
     console.error('Error fetching contact form:', error);
-    res.status(500).json({ error: 'Failed to fetch contact form' });
+    return error(res, 'Failed to fetch contact form');
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', validate(contactFormSchema), async (req, res) => {
   try {
     const { name, email, phone, company, subject, message } = req.body;
-
-    if (!name || !email || !message) {
-      return res.status(400).json({ error: 'Name, email and message are required' });
-    }
 
     const [result] = await db.promise().query(
       `INSERT INTO contact_forms (name, email, phone, company, subject, message)
@@ -58,10 +56,14 @@ router.post('/', async (req, res) => {
       'high',
     );
 
-    res.status(201).json({ message: 'Contact form submitted successfully', id: result.insertId });
+    return success(
+      res,
+      { message: 'Contact form submitted successfully', id: result.insertId },
+      201,
+    );
   } catch (error) {
     console.error('Error creating contact form:', error);
-    res.status(500).json({ error: 'Failed to submit contact form' });
+    return error(res, 'Failed to submit contact form');
   }
 });
 
@@ -71,13 +73,13 @@ router.delete('/:id', async (req, res) => {
     const [result] = await db.promise().query('DELETE FROM contact_forms WHERE id = ?', [id]);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Contact form not found' });
+      return error(res, 'Contact form not found', 404);
     }
 
-    res.json({ message: 'Contact form deleted successfully' });
+    return success(res, { message: 'Contact form deleted successfully' });
   } catch (error) {
     console.error('Error deleting contact form:', error);
-    res.status(500).json({ error: 'Failed to delete contact form' });
+    return error(res, 'Failed to delete contact form');
   }
 });
 

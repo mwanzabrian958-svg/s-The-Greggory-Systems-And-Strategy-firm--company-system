@@ -10,7 +10,8 @@ const {
 // Two-MySQL failover pool (local:3306 + claude:28067) — same as the rest of
 // the API, via the shared cluster in backend/config/database.js.
 const db = require('../config/database');
-const { validate, whatsappBulkSchema, z } = require('../validators');
+const { validate, whatsappBulkSchema } = require('../validators');
+const { z } = require('zod');
 const { success, error } = require('../utils/responseHelper');
 
 const authenticateUser = (req, res, next) => {

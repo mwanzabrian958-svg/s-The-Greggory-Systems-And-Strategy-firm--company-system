@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const requireAdmin = require('../middleware/auth');
+const { validate, managementSchema } = require('../validators');
+const { success, error } = require('../utils/responseHelper');
 
 // Get management info by company
 router.get('/:companyId', (req, res) => {
@@ -17,7 +19,7 @@ router.get('/:companyId', (req, res) => {
   db.query(query, [companyId], (err, results) => {
     if (err) {
       console.error('Error fetching management info:', err);
-      return res.status(500).json({ error: 'Failed to fetch management info' });
+      return error(res, 'Failed to fetch management info');
     }
 
     if (results.length === 0) {
@@ -29,12 +31,12 @@ router.get('/:companyId', (req, res) => {
       });
     }
 
-    res.json(results[0]);
+    return success(res, results[0]);
   });
 });
 
 // Update management info (protected route - would need authentication middleware)
-router.put('/:companyId', requireAdmin, (req, res) => {
+router.put('/:companyId', requireAdmin, validate(managementSchema), (req, res) => {
   const { companyId } = req.params;
   const { station_manager, service_area, base_location, updated_by } = req.body;
 
@@ -55,10 +57,10 @@ router.put('/:companyId', requireAdmin, (req, res) => {
     (err, _result) => {
       if (err) {
         console.error('Error updating management info:', err);
-        return res.status(500).json({ error: 'Failed to update management info' });
+        return error(res, 'Failed to update management info');
       }
 
-      res.json({ message: 'Management info updated successfully' });
+      return success(res, { message: 'Management info updated successfully' });
     },
   );
 });
