@@ -2,10 +2,9 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { sendSMS, sendBulkSMS, COMPANY_PHONE_NUMBER } = require('../services/smsService');
-
-// Two-MySQL failover pool (local:3306 + claude:28067) — same as the rest of
-// the API, via the shared cluster in backend/config/database.js.
 const db = require('../config/database');
+const { validate, smsBulkSchema, z } = require('../validators');
+const { success, error } = require('../utils/responseHelper');
 
 const authenticateUser = (req, res, next) => {
   const authHeader = req.header('authorization') || req.header('Authorization');
@@ -18,7 +17,7 @@ const authenticateUser = (req, res, next) => {
   }
 
   if (!token) {
-    return res.status(401).json({ success: false, message: 'Authentication required' });
+    return error(res, 'Authentication required', 401);
   }
 
   try {
@@ -26,32 +25,26 @@ const authenticateUser = (req, res, next) => {
     req.authUser = decoded;
     req.userId = decoded.userId || decoded.id;
     next();
-  } catch (error) {
-    return res
-      .status(401)
-      .json({ success: false, message: 'Invalid or expired authentication token' });
+  } catch (_) {
+    return error(res, 'Invalid or expired authentication token', 401);
   }
 };
 
+const messageSchema = z.object({
+  message: z.string().min(1, 'Message is required').max(1600, 'Message too long'),
+});
+
 // Health check
 router.get('/test', (req, res) => {
-  res.json({ success: true, message: 'SMS router is working', companyPhone: COMPANY_PHONE_NUMBER });
+  success(res, { message: 'SMS router is working', company_phone: COMPANY_PHONE_NUMBER });
 });
 
 // Send SMS FROM user TO company phone number
-router.post('/send', authenticateUser, async (req, res) => {
+router.post('/send', authenticateUser, validate(messageSchema), async (req, res) => {
   try {
     const userId = req.userId;
     const { message } = req.body;
 
-    if (!userId || !message) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID and message are required',
-      });
-    }
-
-    // Get user's phone number from database
     const [users] = await db
       .promise()
       .query(
@@ -60,27 +53,19 @@ router.post('/send', authenticateUser, async (req, res) => {
       );
 
     if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
+      return error(res, 'User not found', 404);
     }
 
     const user = users[0];
 
     if (!user.phone_number) {
-      return res.status(400).json({
-        success: false,
-        message: 'You do not have a phone number registered. Please update your profile.',
-      });
+      return error(res, 'You do not have a phone number registered. Please update your profile.');
     }
 
-    // Send SMS FROM user TO company number
     const smsResult = await sendSMS(user.phone_number, message);
 
     if (smsResult.success) {
       try {
-        // Log the SMS sent
         await db.promise().query(
           `INSERT INTO admin_activity_logs (admin_user_id, action_type, action_description, affected_table, affected_record_id, created_at)
            VALUES (?, 'SMS_SENT', ?, 'users', ?, NOW())`,
@@ -91,10 +76,7 @@ router.post('/send', authenticateUser, async (req, res) => {
           ],
         );
       } catch (logError) {
-        console.warn(
-          '[SMS SEND] Activity log insert failed, continuing with relay success:',
-          logError.message,
-        );
+        console.warn('[SMS SEND] Activity log insert failed:', logError.message);
       }
 
       const simulated = Boolean(smsResult?.data?.simulated);
@@ -126,30 +108,20 @@ router.post('/send', authenticateUser, async (req, res) => {
 });
 
 // Send SMS to multiple users (bulk)
-router.post('/send-bulk', async (req, res) => {
+router.post('/send-bulk', validate(smsBulkSchema), async (req, res) => {
   try {
-    const { userIds, message } = req.body;
-
-    if (!userIds || !Array.isArray(userIds) || userIds.length === 0 || !message) {
-      return res.status(400).json({
-        success: false,
-        message: 'User IDs array and message are required',
-      });
-    }
+    const { user_ids, message } = req.body;
 
     // Get all users' phone numbers
     const [users] = await db.promise().query(
       `SELECT id, phone_number, first_name, last_name 
        FROM users 
        WHERE id IN (?) AND is_active = true AND phone_number IS NOT NULL`,
-      [userIds],
+      [user_ids],
     );
 
     if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No valid users found with phone numbers',
-      });
+      return error(res, 'No valid users found with phone numbers', 404);
     }
 
     const phoneNumbers = users.map((user) => user.phone_number);
@@ -158,50 +130,32 @@ router.post('/send-bulk', async (req, res) => {
     const smsResult = await sendBulkSMS(phoneNumbers, message);
 
     if (smsResult.success) {
-      // Log the bulk SMS sent
       await db.promise().query(
         `INSERT INTO admin_activity_logs (admin_user_id, action_type, action_description, affected_table, created_at)
          VALUES (?, 'BULK_SMS_SENT', ?, 'users', NOW())`,
         [
-          userIds[0],
+          user_ids[0],
           `Bulk SMS sent to ${users.length} users: ${users.map((u) => u.phone_number).join(', ')}`,
         ],
       );
 
-      res.json({
-        success: true,
+      return success(res, {
         message: 'Bulk SMS sent successfully',
-        recipientsCount: users.length,
+        recipients_count: users.length,
         recipients: phoneNumbers,
       });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send bulk SMS',
-        error: smsResult.error,
-      });
     }
-  } catch (error) {
-    console.error('[SMS BULK SEND] Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error sending bulk SMS',
-      error: error.message,
-    });
+    return error(res, 'Failed to send bulk SMS');
+  } catch (err) {
+    console.error('[SMS BULK SEND] Error:', err);
+    return error(res, 'Error sending bulk SMS');
   }
 });
 
 // Send SMS to all active users with phone numbers
-router.post('/send-all', async (req, res) => {
+router.post('/send-all', validate(messageSchema), async (req, res) => {
   try {
     const { message } = req.body;
-
-    if (!message) {
-      return res.status(400).json({
-        success: false,
-        message: 'Message is required',
-      });
-    }
 
     // Get all active users with phone numbers
     const [users] = await db.promise().query(
@@ -211,10 +165,7 @@ router.post('/send-all', async (req, res) => {
     );
 
     if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No active users found with phone numbers',
-      });
+      return error(res, 'No active users found with phone numbers', 404);
     }
 
     const phoneNumbers = users.map((user) => user.phone_number);
@@ -223,32 +174,21 @@ router.post('/send-all', async (req, res) => {
     const smsResult = await sendBulkSMS(phoneNumbers, message);
 
     if (smsResult.success) {
-      // Log the bulk SMS sent
       await db.promise().query(
         `INSERT INTO admin_activity_logs (admin_user_id, action_type, action_description, affected_table, created_at)
          VALUES (1, 'BULK_SMS_ALL', ?, 'users', NOW())`,
         [`Bulk SMS sent to all ${users.length} active users`],
       );
 
-      res.json({
-        success: true,
+      return success(res, {
         message: 'Bulk SMS sent to all active users successfully',
-        recipientsCount: users.length,
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send bulk SMS',
-        error: smsResult.error,
+        recipients_count: users.length,
       });
     }
-  } catch (error) {
-    console.error('[SMS SEND ALL] Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error sending bulk SMS to all users',
-      error: error.message,
-    });
+    return error(res, 'Failed to send bulk SMS');
+  } catch (err) {
+    console.error('[SMS SEND ALL] Error:', err);
+    return error(res, 'Error sending bulk SMS to all users');
   }
 });
 
