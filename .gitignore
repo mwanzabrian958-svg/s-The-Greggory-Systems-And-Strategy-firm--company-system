@@ -19,6 +19,9 @@ yarn-debug.log*
 yarn-error.log*
 logs/
 
+# Test coverage output
+coverage/
+
 # DB sync backups (contain data dumps)
 scripts/.backup/
 

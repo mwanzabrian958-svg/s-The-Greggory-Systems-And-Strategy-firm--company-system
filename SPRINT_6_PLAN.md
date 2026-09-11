@@ -107,3 +107,7 @@ Sprint 6 is essentially complete. Remaining carry-over into Sprint 7 (in priorit
    - Re-verify with `npm audit` and `cd backend && npm audit` after the major upgrades (Sprint 8+).
 3. ~~**Add a `/reset-password` endpoint**~~ — ✅ **Done.** `POST /api/users/reset-password` now consumes the tokens issued by `forgot-password` (SHA-256-hashed at rest, single-use, 24h expiry). The password-reset flow is end-to-end complete.
 4. **Optional:** install/run `npm run test:coverage` to hit the 70%+ coverage target.
+   - ✅ **Coverage tooling now works** — `@vitest/coverage-v8@^2.1.9` installed (`npm run test:coverage`). 11 suites run (10 passed, 1 DB-skipped), ~23s.
+   - **Baseline (2026-09-11): All files 31.71%** — `backend/validators` **99.1%**, `backend/config` 60.95%, `backend/utils` 43.58%, `backend/routes` 28.84%, `backend/services` 29.38%, `src/**` **0%**.
+   - **Path to 70%+:** needs (a) route happy-path tests (mock DB or a test DB) for the DB branches currently untouched in `routes/` + `services/`, and (b) React component tests for `src/` (currently 0% — only `permissions.test.ts` covers pure logic). Biggest immediate wins: `users.js`, `admin*.js`, `images.js`, `management.js` and the integration services.
+   - `coverage/` output is gitignored.
