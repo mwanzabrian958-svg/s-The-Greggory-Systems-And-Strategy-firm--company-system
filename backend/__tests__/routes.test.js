@@ -639,3 +639,145 @@ describe('DELETE /api/images/:id', () => {
     expect(res.status).toBe(403);
   });
 });
+
+// ── Users: login, client-dashboard, forgot-password ────────────
+describe('POST /api/users/login', () => {
+  it('logs in a registered user and returns a JWT', async () => {
+    const res = await request(app)
+      .post('/api/users/login')
+      .send({ email: TEST_EMAIL, password: 'password123' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.token).toBeDefined();
+    expect(res.body.token.length).toBeGreaterThan(0);
+
+    // Verify the token is a valid JWT.
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET || 'test-secret');
+    expect(decoded.userId).toBeDefined();
+  });
+
+  it('rejects login with wrong password', async () => {
+    const res = await request(app)
+      .post('/api/users/login')
+      .send({ email: TEST_EMAIL, password: 'wrongpassword' });
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('rejects login for a non-existent user', async () => {
+    const res = await request(app)
+      .post('/api/users/login')
+      .send({ email: 'nonexistent@greggory.test', password: 'password123' });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('GET /api/users/client-dashboard (authenticated)', () => {
+  let authToken;
+
+  beforeAll(async () => {
+    const loginRes = await request(app)
+      .post('/api/users/login')
+      .send({ email: TEST_EMAIL, password: 'password123' });
+    authToken = loginRes.body.token;
+  });
+
+  it('returns dashboard data for an authenticated user', async () => {
+    const res = await request(app)
+      .get('/api/users/client-dashboard')
+      .set('Authorization', `Bearer ${authToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+  });
+
+  it('rejects request without a token', async () => {
+    const res = await request(app).get('/api/users/client-dashboard');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects request with an invalid token', async () => {
+    const res = await request(app)
+      .get('/api/users/client-dashboard')
+      .set('Authorization', 'Bearer invalid-token-here');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /api/users/forgot-password', () => {
+  it('returns success even for non-existent email (enumeration-safe)', async () => {
+    const res = await request(app)
+      .post('/api/users/forgot-password')
+      .send({ email: 'nonexistent@greggory.test' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toContain('If the email exists');
+  });
+
+  it('stores a reset token hash for an existing user', async () => {
+    const res = await request(app).post('/api/users/forgot-password').send({ email: TEST_EMAIL });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    // Verify the reset token hash was stored.
+    const [rows] = await db
+      .promise()
+      .query('SELECT password_reset_token, password_reset_expires FROM users WHERE email = ?', [
+        TEST_EMAIL,
+      ]);
+    expect(rows.length).toBe(1);
+    expect(rows[0].password_reset_token).toBeDefined();
+    expect(rows[0].password_reset_token.length).toBeGreaterThan(0);
+    expect(rows[0].password_reset_expires).toBeDefined();
+
+    // Clean up the reset token so it does not interfere with login tests.
+    await db
+      .promise()
+      .query(
+        'UPDATE users SET password_reset_token = NULL, password_reset_expires = NULL WHERE email = ?',
+        [TEST_EMAIL],
+      );
+  });
+
+  it('rejects request without an email', async () => {
+    const res = await request(app).post('/api/users/forgot-password').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('POST /api/users/reset-password', () => {
+  it('rejects missing token', async () => {
+    const res = await request(app)
+      .post('/api/users/reset-password')
+      .send({ password: 'newpassword123' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toBe('Validation failed');
+  });
+
+  it('rejects missing password', async () => {
+    const res = await request(app)
+      .post('/api/users/reset-password')
+      .send({ token: 'some-token-value' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('rejects short password', async () => {
+    const res = await request(app)
+      .post('/api/users/reset-password')
+      .send({ token: 'some-token-value', password: '123' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('rejects invalid or expired token', async () => {
+    const res = await request(app)
+      .post('/api/users/reset-password')
+      .send({ token: 'definitely-not-a-real-token-0123456789abcdef', password: 'newpassword123' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toBe('Invalid or expired reset token');
+  });
+});
