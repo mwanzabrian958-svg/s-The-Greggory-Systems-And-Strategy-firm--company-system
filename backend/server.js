@@ -1,4 +1,5 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -44,50 +45,53 @@ app.use(
     crossOriginEmbedderPolicy: false,
   }),
 );
+// Shared CORS policy — used by Express AND the Socket.IO server.
+const apiCorsOrigin = function (origin, callback) {
+  // Allow requests with no origin (like mobile apps or curl requests)
+  if (!origin) return callback(null, true);
+
+  // Allow any localhost origin
+  if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+    return callback(null, true);
+  }
+
+  // Allow local network IP addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+  if (origin.startsWith('http://192.168.') || origin.startsWith('https://192.168.')) {
+    return callback(null, true);
+  }
+  if (origin.startsWith('http://10.') || origin.startsWith('https://10.')) {
+    return callback(null, true);
+  }
+  if (
+    origin.startsWith('http://172.1') ||
+    origin.startsWith('https://172.1') ||
+    origin.startsWith('http://172.2') ||
+    origin.startsWith('https://172.2') ||
+    origin.startsWith('http://172.3') ||
+    origin.startsWith('https://172.3')
+  ) {
+    return callback(null, true);
+  }
+
+  // Allow specific origins
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://localhost:8080',
+    'http://localhost:4173',
+    'http://192.168.43.197:5173',
+  ];
+  if (allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+
+  callback(new Error('Not allowed by CORS'));
+};
+
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-
-      // Allow any localhost origin
-      if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
-        return callback(null, true);
-      }
-
-      // Allow local network IP addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
-      if (origin.startsWith('http://192.168.') || origin.startsWith('https://192.168.')) {
-        return callback(null, true);
-      }
-      if (origin.startsWith('http://10.') || origin.startsWith('https://10.')) {
-        return callback(null, true);
-      }
-      if (
-        origin.startsWith('http://172.1') ||
-        origin.startsWith('https://172.1') ||
-        origin.startsWith('http://172.2') ||
-        origin.startsWith('https://172.2') ||
-        origin.startsWith('http://172.3') ||
-        origin.startsWith('https://172.3')
-      ) {
-        return callback(null, true);
-      }
-
-      // Allow specific origins
-      const allowedOrigins = [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:3000',
-        'http://localhost:8080',
-        'http://localhost:4173',
-        'http://192.168.43.197:5173',
-      ];
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      callback(new Error('Not allowed by CORS'));
-    },
+    origin: apiCorsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -280,11 +284,19 @@ app.use((req, res) => {
   });
 });
 
+// HTTP server wrapping the Express app — the realtime Socket.IO server
+// shares this server (and its port), mirroring the REST CORS policy.
+const httpServer = http.createServer(app);
+const realtime = require('./realtime/socketServer');
+realtime.initSocketServer(httpServer, apiCorsOrigin);
+
 // Only listen when run directly (`node backend/server.js`).
 // When required by tests (supertest), just export the app without binding a port.
 if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT} (accessible from all network interfaces)`);
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(
+      `Server running on port ${PORT} (accessible from all network interfaces) — REST + WebSocket`,
+    );
   });
 }
 
