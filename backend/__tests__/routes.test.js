@@ -781,3 +781,306 @@ describe('POST /api/users/reset-password', () => {
     expect(res.body.message).toBe('Invalid or expired reset token');
   });
 });
+
+// ── Admin Verification (login) ────────────────────────────────
+describe('POST /api/admin-verification/authenticate-enhanced', () => {
+  beforeAll(async () => {
+    // Seed an admin user with a known bcrypt hash for password "admin123".
+    const bcrypt = require('bcryptjs');
+    const hash = bcrypt.hashSync('admin123', 10);
+    await db.promise().query(
+      `INSERT INTO admin_users (email, password_hash, first_name, last_name, display_name, admin_level, access_level, department, is_active, created_at)
+         VALUES ('admin-test@greggory.test', ?, 'Admin', 'Test', 'Admin Test', 'super_admin', 'full', 'Operations', 1, NOW())
+         ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), is_active = 1`,
+      [hash],
+    );
+  });
+
+  afterAll(async () => {
+    try {
+      await db
+        .promise()
+        .query('DELETE FROM admin_users WHERE email = ?', ['admin-test@greggory.test']);
+    } catch (_) {}
+  });
+
+  it('authenticates with valid credentials and returns a session token', async () => {
+    const res = await request(app)
+      .post('/api/admin-verification/authenticate-enhanced')
+      .send({ email: 'admin-test@greggory.test', password: 'admin123' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.user).toBeDefined();
+    expect(res.body.user.email).toBe('admin-test@greggory.test');
+    expect(res.body.user.admin_level).toBe('super_admin');
+  });
+
+  it('rejects invalid credentials', async () => {
+    const res = await request(app)
+      .post('/api/admin-verification/authenticate-enhanced')
+      .send({ email: 'admin-test@greggory.test', password: 'wrongpassword' });
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('rejects non-existent admin', async () => {
+    const res = await request(app)
+      .post('/api/admin-verification/authenticate-enhanced')
+      .send({ email: 'nonexistent@greggory.test', password: 'admin123' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects missing fields', async () => {
+    const res = await request(app)
+      .post('/api/admin-verification/authenticate-enhanced')
+      .send({ email: 'admin-test@greggory.test' });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ── Admin Users (CRUD) ─────────────────────────────────────────
+const { signSessionToken } = require('../utils/sessionToken');
+let adminSessionToken;
+let createdAdminUserId;
+
+beforeAll(() => {
+  // Generate a valid admin session token for user id 1.
+  adminSessionToken = signSessionToken(1, 'admin');
+});
+
+describe('GET /api/admin/profile-lookup', () => {
+  it('returns 400 without an email', async () => {
+    const res = await request(app).get('/api/admin/profile-lookup');
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('returns success false for an unknown email', async () => {
+    const res = await request(app).get('/api/admin/profile-lookup?email=unknown@greggory.test');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('GET /api/admin/search', () => {
+  it('returns empty results for a short query', async () => {
+    const res = await request(app).get('/api/admin/search?q=a');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.results).toEqual([]);
+  });
+
+  it('returns empty results without a query', async () => {
+    const res = await request(app).get('/api/admin/search');
+    expect(res.status).toBe(200);
+    expect(res.body.results).toEqual([]);
+  });
+});
+
+describe('GET /api/admin/admin-users (admin session)', () => {
+  it('returns a list of admin users with a valid session', async () => {
+    const res = await request(app)
+      .get('/api/admin/admin-users')
+      .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.users)).toBe(true);
+    expect(res.body.count).toBeDefined();
+  });
+
+  it('rejects without a session token', async () => {
+    const res = await request(app).get('/api/admin/admin-users');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects with an invalid session token', async () => {
+    const res = await request(app)
+      .get('/api/admin/admin-users')
+      .set('Authorization', 'Bearer invalid-token');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('GET /api/admin/users (admin session)', () => {
+  it('returns a list of regular users with a valid session', async () => {
+    const res = await request(app)
+      .get('/api/admin/users')
+      .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.users)).toBe(true);
+  });
+
+  it('rejects without a session token', async () => {
+    const res = await request(app).get('/api/admin/users');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /api/admin/create-admin (admin session)', () => {
+  it('creates a new admin user with a valid session', async () => {
+    const uniqueEmail = `new-admin-${Date.now()}@greggory.test`;
+    const res = await request(app)
+      .post('/api/admin/create-admin')
+      .set('Authorization', `Bearer ${adminSessionToken}`)
+      .send({
+        first_name: 'New',
+        last_name: 'Admin',
+        email: uniqueEmail,
+        password: 'newadmin123',
+        admin_level: 'admin',
+        access_level: 'limited',
+        department: 'Marketing',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.userId).toBeDefined();
+    createdAdminUserId = res.body.userId;
+
+    const [rows] = await db
+      .promise()
+      .query('SELECT email, admin_level, department FROM admin_users WHERE id = ?', [
+        createdAdminUserId,
+      ]);
+    expect(rows.length).toBe(1);
+    expect(rows[0].email).toBe(uniqueEmail);
+    expect(rows[0].department).toBe('Marketing');
+  });
+
+  it('rejects duplicate email', async () => {
+    const res = await request(app)
+      .post('/api/admin/create-admin')
+      .set('Authorization', `Bearer ${adminSessionToken}`)
+      .send({
+        first_name: 'Duplicate',
+        last_name: 'Admin',
+        email: 'admin-test@greggory.test',
+        password: 'password123',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('rejects without a session token', async () => {
+    const res = await request(app)
+      .post('/api/admin/create-admin')
+      .send({
+        first_name: 'No',
+        last_name: 'Auth',
+        email: 'noauth@greggory.test',
+        password: 'pass1234',
+      });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects missing required fields', async () => {
+    const res = await request(app)
+      .post('/api/admin/create-admin')
+      .set('Authorization', `Bearer ${adminSessionToken}`)
+      .send({ email: 'incomplete@greggory.test' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('GET /api/admin/users/:id (admin session)', () => {
+  it('returns a user by id with a valid session', async () => {
+    const res = await request(app)
+      .get(`/api/admin/users/${createdAdminUserId}`)
+      .query({ role_type: 'admin' })
+      .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.user).toBeDefined();
+  });
+
+  it('returns 400 without role_type', async () => {
+    const res = await request(app)
+      .get(`/api/admin/users/${createdAdminUserId}`)
+      .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for a non-existent user', async () => {
+    const res = await request(app)
+      .get('/api/admin/users/99999999')
+      .query({ role_type: 'admin' })
+      .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('PUT /api/admin/users/:id (admin session)', () => {
+  it('updates a user with a valid session', async () => {
+    const res = await request(app)
+      .put(`/api/admin/users/${createdAdminUserId}`)
+      .query({ role_type: 'admin' })
+      .set('Authorization', `Bearer ${adminSessionToken}`)
+      .send({
+        first_name: 'Updated',
+        last_name: 'AdminName',
+        email: `updated-admin-${Date.now()}@greggory.test`,
+        department: 'Updated Department',
+        is_active: 1,
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const [rows] = await db
+      .promise()
+      .query('SELECT first_name, department FROM admin_users WHERE id = ?', [createdAdminUserId]);
+    expect(rows[0].first_name).toBe('Updated');
+    expect(rows[0].department).toBe('Updated Department');
+  });
+
+  it('returns 404 when updating a non-existent user', async () => {
+    const res = await request(app)
+      .put('/api/admin/users/99999999')
+      .query({ role_type: 'admin' })
+      .set('Authorization', `Bearer ${adminSessionToken}`)
+      .send({ first_name: 'Ghost' });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('DELETE /api/admin/users/:id (admin session)', () => {
+  it('soft-deletes a user with a valid session', async () => {
+    // Create a fresh admin to delete.
+    const [result] = await db.promise().query(
+      `INSERT INTO admin_users (email, password_hash, first_name, last_name, admin_level, is_active, created_at)
+         VALUES ('admin-to-delete@greggory.test', 'hash', 'Delete', 'Me', 'admin', 1, NOW())`,
+    );
+    const id = result.insertId;
+
+    const res = await request(app)
+      .delete(`/api/admin/users/${id}`)
+      .query({ role_type: 'admin' })
+      .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const [rows] = await db
+      .promise()
+      .query('SELECT deleted_at, is_active FROM admin_users WHERE id = ?', [id]);
+    expect(rows[0].deleted_at).not.toBeNull();
+    expect(rows[0].is_active).toBe(0);
+
+    // Hard-clean.
+    await db.promise().query('DELETE FROM admin_users WHERE id = ?', [id]);
+  });
+
+  it('returns 400 without role_type', async () => {
+    const res = await request(app)
+      .delete(`/api/admin/users/${createdAdminUserId}`)
+      .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when deleting a non-existent user', async () => {
+    const res = await request(app)
+      .delete('/api/admin/users/99999999')
+      .query({ role_type: 'admin' })
+      .set('Authorization', `Bearer ${adminSessionToken}`);
+    expect(res.status).toBe(404);
+  });
+});
