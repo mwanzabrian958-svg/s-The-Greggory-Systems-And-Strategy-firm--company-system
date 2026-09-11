@@ -91,6 +91,19 @@
 Sprint 6 is essentially complete. Remaining carry-over into Sprint 7 (in priority order):
 
 1. **Extract user management routes → `backend/routes/admin-users.js`** — ✅ **Done** this session.
-2. **Address `npm audit` findings** — 12 vulnerabilities (2 low, 3 moderate, 6 high, 1 critical). Run `npm audit` and fix the critical/high items; many are dev-only (electron 25, esbuild).
+2. **Address `npm audit` findings** — ✅ **Analysis complete.** Root: 12 findings (2 low, 3 moderate, 6 high, 1 critical). Backend: 3 findings (1 low, 1 moderate, 1 high).
+   - **Backend (production server) — FIXED by dependency bumps:**
+     - `mysql2` `^3.21.0 → ^3.24.4` (fixes high-severity auth-plugin downgrade + inflate DoS)
+     - `multer` `^1.4.5-lts.1 → ^2.0.2`
+     - `express` `^4.19.2 → ^4.22.2`
+     - Remaining backend findings (low `body-parser`, moderate `qs`, low `joi`/`africastalking`) are transitive through `express`/`africastalking` and only fully clear by moving the backend to `express` 5.x (major). Defer to a dedicated upgrade.
+   - **Root (frontend/dev/desktop) — REMAINING (deferred, all dev-only or desktop-runtime):**
+     - **critical | `vitest` ≤4.1.10** → `vitest` 5.x (major; would also pull `@vitest/mocker`, `vite-node`). Affects `npm test` only. The fixable/dev-server attack requires the Vitest UI server.
+     - **high | `electron` 25.9.8** → 44.x (major runtime + API changes; huge download). Desktop packaging concern only — the Node/Express API and browser frontend are unaffected.
+     - **high | `vite` 4.5.14** → 6.4.3+/7.x; **moderate | `esbuild`**: dev-server only, `npm run dev`/build tooling.
+     - **high | `react-router` / `react-router-dom` 6.16.0** → registry does **not** publish `6.30.7` (audit's suggested range doesn't exist there); latest published is `7.18.x`. Requires the React Router v6→v7 major migration (API changes, `<BrowserRouter>`→framework router option, route loader changes). Plan as a dedicated migration task.
+     - low | `africastalking`/`joi` (downgrade required to 0.7.4 — skip, do not downgrade a working SDK for a low-severity transitive).
+   - **Action taken this session:** kept `backend/package.json` bumps that clear the 1 backend high; documented the remaining 12 root findings (1 critical, 6 high are all dev/desktop-only or major-version). Every remaining item requires a major dependency upgrade — none are safe quick-fetches.
+   - Re-verify with `npm audit` and `cd backend && npm audit` after the major upgrades (Sprint 8+).
 3. ~~**Add a `/reset-password` endpoint**~~ — ✅ **Done.** `POST /api/users/reset-password` now consumes the tokens issued by `forgot-password` (SHA-256-hashed at rest, single-use, 24h expiry). The password-reset flow is end-to-end complete.
 4. **Optional:** install/run `npm run test:coverage` to hit the 70%+ coverage target.
