@@ -1,6 +1,11 @@
 const request = require('supertest');
 const app = require('../server');
 
+// One test in this file inserts real rows into the `content` table, so it is
+// gated like the other real-DB suites (opt in with RUN_DB_TESTS=1).
+const runDbTests = process.env.RUN_DB_TESTS === '1';
+const itDb = runDbTests ? it : it.skip;
+
 describe('Content API validation', () => {
   describe('POST /api/content', () => {
     it('rejects content without title', async () => {
@@ -31,7 +36,7 @@ describe('Content API validation', () => {
       expect(res.body.success).toBe(false);
     });
 
-    it('accepts valid content types', async () => {
+    itDb('accepts valid content types', async () => {
       const types = ['page', 'post', 'article', 'faq'];
       for (const type of types) {
         const res = await request(app)

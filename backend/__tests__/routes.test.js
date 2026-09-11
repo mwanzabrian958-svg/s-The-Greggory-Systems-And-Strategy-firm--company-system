@@ -17,6 +17,9 @@ const TEST_CONTACT_EMAIL = `cf-test-${Date.now()}@greggory.test`;
 process.env.ADMIN_KEY = ADMIN_KEY;
 
 afterAll(async () => {
+  // When RUN_DB_TESTS is unset the DB describes are skipped, but the
+  // top-level afterAll still fires — don't touch a DB that may not exist.
+  if (!runDbTests) return;
   for (const id of createdProjectIds) {
     try {
       await db.promise().query('DELETE FROM user_projects WHERE id = ?', [id]);
@@ -62,6 +65,8 @@ afterAll(async () => {
 const app = require('../server');
 
 beforeAll(async () => {
+  // Skip DB seeding entirely when RUN_DB_TESTS is unset (Database not reachable).
+  if (!runDbTests) return;
   // Seed a real row into management_info for the GET tests.
   await db.promise().query(
     `INSERT INTO management_info (company_id, station_manager, service_area, base_location, updated_by)
@@ -226,7 +231,7 @@ describeDb('Route coverage (real DB)', () => {
 // Tracks created project IDs for cleanup.
 const createdProjectIds = [];
 
-describe('POST /api/user-projects', () => {
+describeDb('POST /api/user-projects', () => {
   it('creates a new project', async () => {
     const res = await request(app)
       .post('/api/user-projects')
@@ -264,7 +269,7 @@ describe('POST /api/user-projects', () => {
   });
 });
 
-describe('GET /api/user-projects', () => {
+describeDb('GET /api/user-projects', () => {
   beforeAll(async () => {
     // Ensure at least one project exists.
     const [result] = await db.promise().query(
@@ -296,7 +301,7 @@ describe('GET /api/user-projects', () => {
   });
 });
 
-describe('PUT /api/user-projects/:id', () => {
+describeDb('PUT /api/user-projects/:id', () => {
   it('updates an existing project', async () => {
     const id = createdProjectIds[0];
     const res = await request(app)
@@ -326,7 +331,7 @@ describe('PUT /api/user-projects/:id', () => {
   });
 });
 
-describe('DELETE /api/user-projects/:id', () => {
+describeDb('DELETE /api/user-projects/:id', () => {
   it('soft-deletes a project', async () => {
     // Create a fresh project to delete.
     const [result] = await db.promise().query(
@@ -355,7 +360,7 @@ const createdContentIds = [];
 const createdImageIds = [];
 
 // ── Blog Articles ──────────────────────────────────────────────
-describe('POST /api/blog-articles', () => {
+describeDb('POST /api/blog-articles', () => {
   it('creates a new blog article', async () => {
     const res = await request(app)
       .post('/api/blog-articles')
@@ -389,7 +394,7 @@ describe('POST /api/blog-articles', () => {
   });
 });
 
-describe('GET /api/blog-articles', () => {
+describeDb('GET /api/blog-articles', () => {
   it('returns a list of blog articles', async () => {
     const res = await request(app).get('/api/blog-articles');
     expect(res.status).toBe(200);
@@ -408,7 +413,7 @@ describe('GET /api/blog-articles', () => {
   });
 });
 
-describe('PUT /api/blog-articles/:id', () => {
+describeDb('PUT /api/blog-articles/:id', () => {
   it('updates an existing article', async () => {
     const id = createdArticleIds[0];
     const res = await request(app)
@@ -429,7 +434,7 @@ describe('PUT /api/blog-articles/:id', () => {
   });
 });
 
-describe('DELETE /api/blog-articles/:id', () => {
+describeDb('DELETE /api/blog-articles/:id', () => {
   it('hard-deletes an article', async () => {
     // Create a fresh article to delete.
     const [result] = await db.promise().query(
@@ -447,7 +452,7 @@ describe('DELETE /api/blog-articles/:id', () => {
   });
 });
 // ── Content ───────────────────────────────────────────────────
-describe('POST /api/content', () => {
+describeDb('POST /api/content', () => {
   it('creates a new content item', async () => {
     const res = await request(app)
       .post('/api/content')
@@ -481,7 +486,7 @@ describe('POST /api/content', () => {
   });
 });
 
-describe('GET /api/content', () => {
+describeDb('GET /api/content', () => {
   it('returns a list of content items', async () => {
     const res = await request(app).get('/api/content');
     expect(res.status).toBe(200);
@@ -502,7 +507,7 @@ describe('GET /api/content', () => {
   });
 });
 
-describe('PUT /api/content/:id', () => {
+describeDb('PUT /api/content/:id', () => {
   it('updates an existing content item', async () => {
     const id = createdContentIds[0];
     const res = await request(app)
@@ -522,7 +527,7 @@ describe('PUT /api/content/:id', () => {
   });
 });
 
-describe('DELETE /api/content/:id', () => {
+describeDb('DELETE /api/content/:id', () => {
   it('soft-deletes a content item', async () => {
     // Create a fresh content item to delete.
     const [result] = await db.promise().query(
@@ -545,7 +550,7 @@ describe('DELETE /api/content/:id', () => {
 });
 
 // ── Images ─────────────────────────────────────────────────────
-describe('POST /api/images/profile', () => {
+describeDb('POST /api/images/profile', () => {
   it('uploads a profile image (base64)', async () => {
     // Small 1x1 red pixel PNG as base64.
     const pixelBase64 =
@@ -578,7 +583,7 @@ describe('POST /api/images/profile', () => {
   });
 });
 
-describe('GET /api/images/:id', () => {
+describeDb('GET /api/images/:id', () => {
   it('returns image binary with correct content-type', async () => {
     const res = await request(app)
       .get(`/api/images/${createdImageIds[0]}`)
@@ -599,7 +604,7 @@ describe('GET /api/images/:id', () => {
   });
 });
 
-describe('DELETE /api/images/:id', () => {
+describeDb('DELETE /api/images/:id', () => {
   it('deletes an image (admin only)', async () => {
     // Create a fresh image to delete.
     const pixelBase64 =
@@ -647,7 +652,7 @@ describe('DELETE /api/images/:id', () => {
 });
 
 // ── Users: login, client-dashboard, forgot-password ────────────
-describe('POST /api/users/login', () => {
+describeDb('POST /api/users/login', () => {
   it('logs in a registered user and returns a JWT', async () => {
     const res = await request(app)
       .post('/api/users/login')
@@ -679,7 +684,7 @@ describe('POST /api/users/login', () => {
   });
 });
 
-describe('GET /api/users/client-dashboard (authenticated)', () => {
+describeDb('GET /api/users/client-dashboard (authenticated)', () => {
   let authToken;
 
   beforeAll(async () => {
@@ -710,7 +715,7 @@ describe('GET /api/users/client-dashboard (authenticated)', () => {
   });
 });
 
-describe('POST /api/users/forgot-password', () => {
+describeDb('POST /api/users/forgot-password', () => {
   it('returns success even for non-existent email (enumeration-safe)', async () => {
     const res = await request(app)
       .post('/api/users/forgot-password')
@@ -752,7 +757,7 @@ describe('POST /api/users/forgot-password', () => {
   });
 });
 
-describe('POST /api/users/reset-password', () => {
+describeDb('POST /api/users/reset-password', () => {
   it('rejects missing token', async () => {
     const res = await request(app)
       .post('/api/users/reset-password')
@@ -789,7 +794,7 @@ describe('POST /api/users/reset-password', () => {
 });
 
 // ── Admin Verification (login) ────────────────────────────────
-describe('POST /api/admin-verification/authenticate-enhanced', () => {
+describeDb('POST /api/admin-verification/authenticate-enhanced', () => {
   beforeAll(async () => {
     // Seed an admin user with a known bcrypt hash for password "admin123".
     const bcrypt = require('bcryptjs');
@@ -854,7 +859,7 @@ beforeAll(() => {
   adminSessionToken = signSessionToken(1, 'admin');
 });
 
-describe('GET /api/admin/profile-lookup', () => {
+describeDb('GET /api/admin/profile-lookup', () => {
   it('returns 400 without an email', async () => {
     const res = await request(app).get('/api/admin/profile-lookup');
     expect(res.status).toBe(400);
@@ -868,7 +873,7 @@ describe('GET /api/admin/profile-lookup', () => {
   });
 });
 
-describe('GET /api/admin/search', () => {
+describeDb('GET /api/admin/search', () => {
   it('returns empty results for a short query', async () => {
     const res = await request(app).get('/api/admin/search?q=a');
     expect(res.status).toBe(200);
@@ -883,7 +888,7 @@ describe('GET /api/admin/search', () => {
   });
 });
 
-describe('GET /api/admin/admin-users (admin session)', () => {
+describeDb('GET /api/admin/admin-users (admin session)', () => {
   it('returns a list of admin users with a valid session', async () => {
     const res = await request(app)
       .get('/api/admin/admin-users')
@@ -907,7 +912,7 @@ describe('GET /api/admin/admin-users (admin session)', () => {
   });
 });
 
-describe('GET /api/admin/users (admin session)', () => {
+describeDb('GET /api/admin/users (admin session)', () => {
   it('returns a list of regular users with a valid session', async () => {
     const res = await request(app)
       .get('/api/admin/users')
@@ -923,7 +928,7 @@ describe('GET /api/admin/users (admin session)', () => {
   });
 });
 
-describe('POST /api/admin/create-admin (admin session)', () => {
+describeDb('POST /api/admin/create-admin (admin session)', () => {
   it('creates a new admin user with a valid session', async () => {
     const uniqueEmail = `new-admin-${Date.now()}@greggory.test`;
     const res = await request(app)
@@ -987,7 +992,7 @@ describe('POST /api/admin/create-admin (admin session)', () => {
   });
 });
 
-describe('GET /api/admin/users/:id (admin session)', () => {
+describeDb('GET /api/admin/users/:id (admin session)', () => {
   it('returns a user by id with a valid session', async () => {
     const res = await request(app)
       .get(`/api/admin/users/${createdAdminUserId}`)
@@ -1014,7 +1019,7 @@ describe('GET /api/admin/users/:id (admin session)', () => {
   });
 });
 
-describe('PUT /api/admin/users/:id (admin session)', () => {
+describeDb('PUT /api/admin/users/:id (admin session)', () => {
   it('updates a user with a valid session', async () => {
     const res = await request(app)
       .put(`/api/admin/users/${createdAdminUserId}`)
@@ -1047,7 +1052,7 @@ describe('PUT /api/admin/users/:id (admin session)', () => {
   });
 });
 
-describe('DELETE /api/admin/users/:id (admin session)', () => {
+describeDb('DELETE /api/admin/users/:id (admin session)', () => {
   it('soft-deletes a user with a valid session', async () => {
     // Create a fresh admin to delete.
     const [result] = await db.promise().query(
@@ -1090,7 +1095,7 @@ describe('DELETE /api/admin/users/:id (admin session)', () => {
 });
 
 // ── Admin.js: dashboard, activity logs, reports ────────────────
-describe('GET /api/admin/dashboard-stats', () => {
+describeDb('GET /api/admin/dashboard-stats', () => {
   it('returns dashboard statistics', async () => {
     const res = await request(app).get('/api/admin/dashboard-stats');
     expect(res.status).toBe(200);
@@ -1102,7 +1107,7 @@ describe('GET /api/admin/dashboard-stats', () => {
   });
 });
 
-describe('GET /api/admin/activity-logs', () => {
+describeDb('GET /api/admin/activity-logs', () => {
   it('returns a list of activity logs', async () => {
     const res = await request(app).get('/api/admin/activity-logs');
     expect(res.status).toBe(200);
@@ -1111,7 +1116,7 @@ describe('GET /api/admin/activity-logs', () => {
   });
 });
 
-describe('GET /api/admin/budget-overview', () => {
+describeDb('GET /api/admin/budget-overview', () => {
   it('returns budget overview data', async () => {
     const res = await request(app).get('/api/admin/budget-overview');
     expect(res.status).toBe(200);
@@ -1119,7 +1124,7 @@ describe('GET /api/admin/budget-overview', () => {
   });
 });
 
-describe('GET /api/admin/pending-approvals', () => {
+describeDb('GET /api/admin/pending-approvals', () => {
   it('returns pending approvals', async () => {
     const res = await request(app).get('/api/admin/pending-approvals');
     expect(res.status).toBe(200);
@@ -1127,7 +1132,7 @@ describe('GET /api/admin/pending-approvals', () => {
   });
 });
 
-describe('GET /api/admin/pending-invoices', () => {
+describeDb('GET /api/admin/pending-invoices', () => {
   it('returns pending invoices', async () => {
     const res = await request(app).get('/api/admin/pending-invoices');
     expect(res.status).toBe(200);
@@ -1135,7 +1140,7 @@ describe('GET /api/admin/pending-invoices', () => {
   });
 });
 
-describe('GET /api/admin/client-feedback', () => {
+describeDb('GET /api/admin/client-feedback', () => {
   it('returns client feedback', async () => {
     const res = await request(app).get('/api/admin/client-feedback');
     expect(res.status).toBe(200);
@@ -1143,7 +1148,7 @@ describe('GET /api/admin/client-feedback', () => {
   });
 });
 
-describe('GET /api/admin/ledger', () => {
+describeDb('GET /api/admin/ledger', () => {
   it('returns ledger entries', async () => {
     const res = await request(app).get('/api/admin/ledger');
     expect(res.status).toBe(200);
@@ -1151,7 +1156,7 @@ describe('GET /api/admin/ledger', () => {
   });
 });
 
-describe('GET /api/admin/risk-alerts', () => {
+describeDb('GET /api/admin/risk-alerts', () => {
   it('returns risk alerts', async () => {
     const res = await request(app).get('/api/admin/risk-alerts');
     expect(res.status).toBe(200);
@@ -1159,7 +1164,7 @@ describe('GET /api/admin/risk-alerts', () => {
   });
 });
 
-describe('GET /api/admin/assigned-tasks', () => {
+describeDb('GET /api/admin/assigned-tasks', () => {
   it('returns assigned tasks', async () => {
     const res = await request(app).get('/api/admin/assigned-tasks');
     expect(res.status).toBe(200);
@@ -1167,7 +1172,7 @@ describe('GET /api/admin/assigned-tasks', () => {
   });
 });
 
-describe('GET /api/admin/projects/all', () => {
+describeDb('GET /api/admin/projects/all', () => {
   it('returns all projects (admin view)', async () => {
     const res = await request(app).get('/api/admin/projects/all');
     expect(res.status).toBe(200);
@@ -1175,7 +1180,7 @@ describe('GET /api/admin/projects/all', () => {
   });
 });
 
-describe('POST /api/admin/reports', () => {
+describeDb('POST /api/admin/reports', () => {
   it('creates a report', async () => {
     const res = await request(app)
       .post('/api/admin/reports')
@@ -1205,7 +1210,7 @@ describe('POST /api/admin/reports', () => {
   });
 });
 
-describe('DELETE /api/admin/accounting/entries/:id', () => {
+describeDb('DELETE /api/admin/accounting/entries/:id', () => {
   it('rejects deletion without an id', async () => {
     const res = await request(app).delete('/api/admin/accounting/entries/99999999');
     // Either 404 (not found) or 400 (bad request) is acceptable.
@@ -1213,14 +1218,14 @@ describe('DELETE /api/admin/accounting/entries/:id', () => {
   });
 });
 
-describe('DELETE /api/admin/invoices/:id', () => {
+describeDb('DELETE /api/admin/invoices/:id', () => {
   it('rejects deletion without an id', async () => {
     const res = await request(app).delete('/api/admin/invoices/99999999');
     expect([400, 404]).toContain(res.status);
   });
 });
 
-describe('DELETE /api/admin/blog-articles/:id', () => {
+describeDb('DELETE /api/admin/blog-articles/:id', () => {
   it('returns 404 for a non-existent blog article', async () => {
     const res = await request(app).delete('/api/admin/blog-articles/99999999');
     expect(res.status).toBe(404);
@@ -1230,7 +1235,7 @@ describe('DELETE /api/admin/blog-articles/:id', () => {
 // ── Admin CRM ──────────────────────────────────────────────────
 const createdCrmContactIds = [];
 
-describe('GET /api/admin/crm/contacts', () => {
+describeDb('GET /api/admin/crm/contacts', () => {
   it('returns a list of CRM contacts', async () => {
     const res = await request(app).get('/api/admin/crm/contacts');
     expect(res.status).toBe(200);
@@ -1239,7 +1244,7 @@ describe('GET /api/admin/crm/contacts', () => {
   });
 });
 
-describe('POST /api/admin/crm/contacts', () => {
+describeDb('POST /api/admin/crm/contacts', () => {
   it('creates a new CRM contact', async () => {
     const res = await request(app)
       .post('/api/admin/crm/contacts')
@@ -1266,7 +1271,7 @@ describe('POST /api/admin/crm/contacts', () => {
   });
 });
 
-describe('PUT /api/admin/crm/contacts/:id', () => {
+describeDb('PUT /api/admin/crm/contacts/:id', () => {
   it('updates an existing contact', async () => {
     const id = createdCrmContactIds[0];
     const res = await request(app)
@@ -1288,7 +1293,7 @@ describe('PUT /api/admin/crm/contacts/:id', () => {
   });
 });
 
-describe('DELETE /api/admin/crm/contacts/:id', () => {
+describeDb('DELETE /api/admin/crm/contacts/:id', () => {
   it('soft-deletes a contact', async () => {
     const [result] = await db
       .promise()
@@ -1311,7 +1316,7 @@ describe('DELETE /api/admin/crm/contacts/:id', () => {
 });
 
 // ── Admin Settings ─────────────────────────────────────────────
-describe('GET /api/admin/settings', () => {
+describeDb('GET /api/admin/settings', () => {
   it('returns admin settings', async () => {
     const res = await request(app).get('/api/admin/settings');
     expect(res.status).toBe(200);
@@ -1320,7 +1325,7 @@ describe('GET /api/admin/settings', () => {
   });
 });
 
-describe('PUT /api/admin/settings', () => {
+describeDb('PUT /api/admin/settings', () => {
   it('updates settings', async () => {
     const res = await request(app)
       .put('/api/admin/settings')
@@ -1342,7 +1347,7 @@ describe('PUT /api/admin/settings', () => {
   });
 });
 
-describe('GET /api/admin/node-settings', () => {
+describeDb('GET /api/admin/node-settings', () => {
   it('returns node settings with system status', async () => {
     const res = await request(app).get('/api/admin/node-settings');
     expect(res.status).toBe(200);
@@ -1353,7 +1358,7 @@ describe('GET /api/admin/node-settings', () => {
 });
 
 // ── Admin Complete (alternative admin routes) ──────────────────
-describe('GET /api/admin/budget-overview', () => {
+describeDb('GET /api/admin/budget-overview', () => {
   it('returns budget overview', async () => {
     const res = await request(app).get('/api/admin/budget-overview');
     expect(res.status).toBe(200);
@@ -1361,7 +1366,7 @@ describe('GET /api/admin/budget-overview', () => {
   });
 });
 
-describe('GET /api/admin/ledger', () => {
+describeDb('GET /api/admin/ledger', () => {
   it('returns ledger entries', async () => {
     const res = await request(app).get('/api/admin/ledger');
     expect(res.status).toBe(200);
@@ -1369,7 +1374,7 @@ describe('GET /api/admin/ledger', () => {
   });
 });
 
-describe('GET /api/admin/mpesa/transactions', () => {
+describeDb('GET /api/admin/mpesa/transactions', () => {
   it('returns M-Pesa transactions', async () => {
     const res = await request(app).get('/api/admin/mpesa/transactions');
     expect(res.status).toBe(200);
@@ -1378,7 +1383,7 @@ describe('GET /api/admin/mpesa/transactions', () => {
 });
 
 // ── Easy Admin ─────────────────────────────────────────────────
-describe('GET /api/easy-admin/departments', () => {
+describeDb('GET /api/easy-admin/departments', () => {
   it('returns a list of departments', async () => {
     const res = await request(app).get('/api/easy-admin/departments');
     expect(res.status).toBe(200);
@@ -1386,7 +1391,7 @@ describe('GET /api/easy-admin/departments', () => {
   });
 });
 
-describe('GET /api/easy-admin/departments/:slug', () => {
+describeDb('GET /api/easy-admin/departments/:slug', () => {
   it('returns a department by slug', async () => {
     const res = await request(app).get('/api/easy-admin/departments/operations');
     expect(res.status).toBe(200);
@@ -1395,7 +1400,7 @@ describe('GET /api/easy-admin/departments/:slug', () => {
 });
 
 // ── Developer Verification ─────────────────────────────────────
-describe('POST /api/developer-verification/authenticate', () => {
+describeDb('POST /api/developer-verification/authenticate', () => {
   it('rejects missing credentials', async () => {
     const res = await request(app).post('/api/developer-verification/authenticate').send({});
     expect(res.status).toBe(400);
@@ -1403,7 +1408,7 @@ describe('POST /api/developer-verification/authenticate', () => {
   });
 });
 
-describe('GET /api/developer-verification/health', () => {
+describeDb('GET /api/developer-verification/health', () => {
   it('returns health status', async () => {
     const res = await request(app).get('/api/developer-verification/health');
     expect(res.status).toBe(200);
