@@ -14,7 +14,12 @@ import { useTheme } from "../context/ThemeContext";
  *  - variant         : "admin" (dark header) | "client" (themed)
  *  - minChars        : trigger length (default 2)
  */
-const ICON_MAP = { user: User, project: FolderKanban, task: CheckSquare, ledger: Calculator };
+const ICON_COMPONENTS = { user: User, project: FolderKanban, task: CheckSquare, ledger: Calculator };
+
+function ResultIcon({ type, size = 16 }) {
+  const Icon = ICON_COMPONENTS[type] || Search;
+  return <Icon size={size} />;
+}
 
 export default function SearchBlock({
   endpoint = "/api/admin/search",
@@ -86,7 +91,6 @@ export default function SearchBlock({
     else navigate(`${resultsBase}?q=${encodeURIComponent(query.trim())}`);
   };
 
-  const IconFor = (type) => ICON_MAP[type] || Search;
   const isAdminTheme = variant === "admin";
 
   return (
@@ -144,7 +148,7 @@ export default function SearchBlock({
                   }`}
                 >
                   <div className={`p-1.5 rounded-lg ${isAdminTheme ? "bg-[#002D62]/10 text-[#002D62] dark:text-blue-400" : "bg-[#002D62]/10 text-[#002D62] dark:text-blue-400"}`}>
-                    <IconFor type={item.type} size={16} />
+                    <ResultIcon type={item.type} size={16} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className={`font-bold text-[11px] leading-tight truncate ${isAdminTheme || darkMode ? "text-white" : "text-slate-900"}`}>
